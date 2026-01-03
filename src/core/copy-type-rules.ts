@@ -149,31 +149,31 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
     requiresSpecificDetailEveryNSentences: 2,
     beatStructures: {
       hook: {
-        maxWords: 15,
+        maxWords: 20,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb', 'pronoun'],
-        forbidden: ['hi there', 'hey there', 'dear', 'hope this finds'],
+        forbidden: ['hello', 'hi there', 'hey there', 'dear', 'hope this finds', 'have you ever', 'picture this', 'consider this'],
       },
-      problem: {
-        maxWords: 25,
-        requiredElements: ['specific_noun'],
-        firstWordType: ['noun', 'verb', 'pronoun'],
-        forbidden: [],
-      },
-      solution: {
+      tension: {
         maxWords: 30,
-        requiredElements: ['specific_noun', 'number'],
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: ['here are', 'there are several', 'consider the following'],
+      },
+      resolution: {
+        maxWords: 35,
+        requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
-      cta: {
-        maxWords: 10,
+      action: {
+        maxWords: 15,
         requiredElements: ['imperative'],
         firstWordType: ['imperative', 'verb'],
-        forbidden: ['click here', 'learn more'],
+        forbidden: ['click here', 'learn more', 'check it out', 'find out more'],
       },
     },
-    requiredBeatSequence: ['hook', 'problem', 'solution', 'cta'], // EXACTLY these 4 beats
+    requiredBeatSequence: ['hook', 'tension', 'resolution', 'action'], // Story structure: observation → tension → resolution → action
     additionalForbidden: [
       'hope this finds you well',
       'reaching out',
