@@ -1,20 +1,20 @@
 import { z } from 'zod'
 
-// Variants object
+// Variants object - all fields required for structured output compatibility
 export const VariantsSchema = z.object({
-  shorter: z.string().optional(),
-  punchier: z.string().optional(),
-  safer: z.string().optional(),
+  shorter: z.string(),
+  punchier: z.string(),
+  safer: z.string(),
 })
 export type Variants = z.infer<typeof VariantsSchema>
 
-// Extras for specific channels
+// Extras for specific channels - all fields required for structured output compatibility
 export const ExtrasSchema = z.object({
-  email_subject_lines: z.array(z.string()).optional(),
-  preheaders: z.array(z.string()).optional(),
-  headlines: z.array(z.string()).optional(),
-  meta_descriptions: z.array(z.string()).optional(),
-  cta_options: z.array(z.string()).optional(),
+  email_subject_lines: z.array(z.string()),
+  preheaders: z.array(z.string()),
+  headlines: z.array(z.string()),
+  meta_descriptions: z.array(z.string()),
+  cta_options: z.array(z.string()),
 })
 export type Extras = z.infer<typeof ExtrasSchema>
 
@@ -36,9 +36,7 @@ export const FinalPackageSchema = z.object({
   variants: VariantsSchema,
   extras: ExtrasSchema,
   qa: QAChecklistSchema,
-  // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type FinalPackage = z.infer<typeof FinalPackageSchema>
-

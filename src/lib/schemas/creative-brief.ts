@@ -45,8 +45,8 @@ export const CreativeBriefSchema = z.object({
   success_criteria: z.array(z.string()).describe('Observable properties of final copy'),
   risk_notes: z.array(z.string()).describe('Claims likely to feel fake or salesy'),
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type CreativeBrief = z.infer<typeof CreativeBriefSchema>
 

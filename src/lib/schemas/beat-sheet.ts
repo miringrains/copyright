@@ -49,8 +49,8 @@ export const BeatSheetSchema = z.object({
   format_rules: z.array(z.string()).describe('Channel-specific formatting constraints'),
   forbidden_moves: z.array(z.string()).describe('Things that would create AI slop'),
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type BeatSheet = z.infer<typeof BeatSheetSchema>
 

@@ -64,7 +64,7 @@ export const MessageArchitectureSchema = z.object({
   ordering: OrderingSchema,
   allowed_claim_strength: ClaimStrengthSchema,
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type MessageArchitecture = z.infer<typeof MessageArchitectureSchema>

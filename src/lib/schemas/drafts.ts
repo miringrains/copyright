@@ -22,8 +22,8 @@ export const DraftV0Schema = z.object({
   beat_trace: z.array(BeatTraceEntrySchema),
   self_check: SelfCheckSchema,
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type DraftV0 = z.infer<typeof DraftV0Schema>
 
@@ -72,8 +72,8 @@ export const CohesionReportSchema = z.object({
   bridges_added: z.array(BridgeAddedSchema),
   draft_v1: z.string().describe('Revised text'),
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type CohesionReport = z.infer<typeof CohesionReportSchema>
 
@@ -112,8 +112,8 @@ export const RhythmReportSchema = z.object({
   paragraphing_changes: z.array(ParagraphingChangeSchema),
   draft_v2: z.string().describe('Revised text'),
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type RhythmReport = z.infer<typeof RhythmReportSchema>
 
@@ -131,8 +131,8 @@ export const ChannelPassReportSchema = z.object({
   scan_optimization: ScanOptimizationSchema,
   draft_v3: z.string().describe('Revised text'),
   // Global optional keys
-  missing_inputs: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missing_inputs: z.array(z.string()),
+  notes: z.array(z.string()),
 })
 export type ChannelPassReport = z.infer<typeof ChannelPassReportSchema>
 
