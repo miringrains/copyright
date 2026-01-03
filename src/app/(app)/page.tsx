@@ -172,7 +172,7 @@ export default function HomePage() {
 
         {/* Main Interface */}
         {status === 'idle' && (
-          <SmartBrief onGenerate={handleGenerate} isGenerating={status === 'running'} />
+          <SmartBrief onGenerate={handleGenerate} isGenerating={false} />
         )}
 
         {/* Progress & Activity */}
