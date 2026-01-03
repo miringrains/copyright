@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { InputPanel } from '@/components/features/input/input-panel'
+import { SmartInputPanel } from '@/components/features/input/smart-input-panel'
 import { PipelineProgress } from '@/components/features/pipeline/pipeline-progress'
 import { LiveActivity, createActivityLog, type ActivityLog } from '@/components/features/pipeline/live-activity'
 import { OutputPanel } from '@/components/features/output/output-panel'
@@ -162,8 +162,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Input Panel */}
-      <InputPanel onGenerate={handleGenerate} isGenerating={status === 'running'} />
+      {/* Smart Input Panel */}
+      <SmartInputPanel onGenerate={handleGenerate} isGenerating={status === 'running'} />
 
       {/* Progress & Activity */}
       {status !== 'idle' && (
