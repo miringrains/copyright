@@ -119,11 +119,47 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground antialiased;
   }
+  
+  }
+
+/* Subtle focus states like Firecrawl - no heavy outlines */
+*:focus {
+  outline: none !important;
+}
+
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove ring from all interactive elements */
+button:focus-visible,
+[role="combobox"]:focus-visible,
+[role="listbox"]:focus-visible,
+[role="option"]:focus-visible,
+select:focus-visible {
+  outline: none !important;
+  ring: none !important;
+  box-shadow: none !important;
+}
+
+/* Subtle border change on focus for inputs */
+input:focus,
+textarea:focus {
+  border-color: hsl(24 100% 50% / 0.4) !important;
+  box-shadow: none !important;
+}
+
+/* Remove the trigger outline */
+[data-radix-collection-item]:focus-visible,
+[data-state="open"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Firecrawl-inspired grid background */
