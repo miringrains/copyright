@@ -122,22 +122,43 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
     }
 
     const taskSpec: TaskSpec = {
-      copy_type: selectedType as TaskSpec['copy_type'],
+      copy_type: getCopyTypeEnum(selectedType),
       channel: getChannelFromType(selectedType),
       audience: {
         who: (formData['target_audience'] as string) || 'Target audience not specified',
-        stage: 'problem_aware',
+        context: researchContext.join('\n\n'),
+        skepticism_level: 'medium',
+        prior_knowledge: 'medium',
       },
-      proof_lane: 'case_study',
+      goal: {
+        primary_action: (formData['desired_action'] as string) || 
+                        (formData['goal'] as string) || 
+                        'Take the next step',
+        success_metric: 'Conversion/engagement',
+      },
+      inputs: {
+        product_or_topic: (formData['company_name'] as string) || 
+                          (formData['product_name'] as string) || 
+                          (formData['topic'] as string) || 'Product/Service',
+        offer_or_claim_seed: (formData['value_proposition'] as string) || 
+                             (formData['offer'] as string) || 
+                             (formData['main_promise'] as string) || undefined,
+        proof_material: [],
+        must_include: [],
+        must_avoid: [],
+      },
+      voice_profile: {
+        persona: getTonePersona((formData['tone'] as string) || 'professional'),
+        formality: getToneFormality((formData['tone'] as string) || 'professional'),
+        stance: (formData['key_differentiators'] as string) || 'We deliver results',
+        taboos: [],
+        reference_texts: [],
+      },
       length_budget: {
         unit: 'words',
         target: getTargetLength(selectedType),
-        hard_max: getTargetLength(selectedType) * 1.5,
+        hard_max: Math.round(getTargetLength(selectedType) * 1.5),
       },
-      research: researchContext.join('\n\n'),
-      offer_or_claim_seed: (formData['value_proposition'] as string) || 
-                           (formData['offer'] as string) || 
-                           (formData['main_promise'] as string) || '',
     }
 
     onGenerate(taskSpec)
@@ -398,17 +419,30 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
 }
 
 // Helper functions
-function getChannelFromType(type: string): TaskSpec['channel'] {
-  const channelMap: Record<string, TaskSpec['channel']> = {
+function getCopyTypeEnum(type: string): TaskSpec['copy_type'] {
+  const copyTypeMap: Record<string, TaskSpec['copy_type']> = {
     landing_page: 'website',
     website_copy: 'website',
     email_sequence: 'email',
-    sales_letter: 'sales_page',
+    sales_letter: 'website',
     ad_copy: 'social',
     blog_article: 'article',
     case_study: 'article',
   }
-  return channelMap[type] || 'website'
+  return copyTypeMap[type] || 'website'
+}
+
+function getChannelFromType(type: string): TaskSpec['channel'] {
+  const channelMap: Record<string, TaskSpec['channel']> = {
+    landing_page: 'landing_page',
+    website_copy: 'homepage',
+    email_sequence: 'email_newsletter',
+    sales_letter: 'landing_page',
+    ad_copy: 'linkedin_post',
+    blog_article: 'blog_post',
+    case_study: 'case_study',
+  }
+  return channelMap[type] || 'landing_page'
 }
 
 function getTargetLength(type: string): number {
@@ -422,5 +456,27 @@ function getTargetLength(type: string): number {
     case_study: 1000,
   }
   return lengthMap[type] || 500
+}
+
+function getTonePersona(tone: string): string {
+  const personaMap: Record<string, string> = {
+    professional: 'Knowledgeable expert who builds trust through clarity',
+    conversational: 'Friendly advisor having a one-on-one conversation',
+    bold: 'Confident authority who speaks directly and takes a stand',
+    empathetic: 'Understanding guide who acknowledges challenges',
+    authoritative: 'Industry leader backed by deep expertise',
+  }
+  return personaMap[tone] || personaMap.professional
+}
+
+function getToneFormality(tone: string): 'low' | 'medium' | 'high' {
+  const formalityMap: Record<string, 'low' | 'medium' | 'high'> = {
+    professional: 'medium',
+    conversational: 'low',
+    bold: 'low',
+    empathetic: 'medium',
+    authoritative: 'high',
+  }
+  return formalityMap[tone] || 'medium'
 }
 
