@@ -11,6 +11,7 @@ import {
   Waves, 
   LayoutGrid, 
   Package,
+  Sparkles,
 } from 'lucide-react'
 import { PHASE_NAMES, type PhaseNumber } from '@/core/domain/value-objects'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,6 +26,7 @@ const PHASE_ICONS: Record<number, React.ReactNode> = {
   6: <Waves className="h-4 w-4" />,
   7: <LayoutGrid className="h-4 w-4" />,
   8: <Package className="h-4 w-4" />,
+  9: <Sparkles className="h-4 w-4" />,
 }
 
 const PHASE_SHORT: Record<number, string> = {
@@ -36,6 +38,7 @@ const PHASE_SHORT: Record<number, string> = {
   6: 'Rhythm',
   7: 'Channel',
   8: 'Package',
+  9: 'Polish',
 }
 
 interface PipelineProgressProps {
@@ -63,7 +66,7 @@ export function PipelineProgress({ currentPhase, status }: PipelineProgressProps
 
   const progress = status === 'completed' 
     ? 100 
-    : Math.max(0, ((currentPhase - 1) / 8) * 100 + (status === 'running' ? 6 : 0))
+    : Math.max(0, ((currentPhase - 1) / 9) * 100 + (status === 'running' ? 5 : 0))
 
   return (
     <Card className="border overflow-hidden bg-background/50 backdrop-blur">
@@ -84,7 +87,7 @@ export function PipelineProgress({ currentPhase, status }: PipelineProgressProps
             </span>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {currentPhase}/8
+            {currentPhase}/9
           </span>
         </div>
 

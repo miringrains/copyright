@@ -53,6 +53,12 @@ const PHASE_THINKING: Record<number, string[]> = {
     'Creating punchy variant...',
     'Packaging final output...',
   ],
+  9: [
+    'Removing AI artifacts...',
+    'Cutting filler words...',
+    'Rewriting unnatural phrases...',
+    'Making it sound human...',
+  ],
 }
 
 function createSSEMessage(data: Record<string, unknown>): string {
@@ -69,6 +75,7 @@ function getArtifactName(phase: number): string {
     6: 'Draft V2 (Rhythm)',
     7: 'Draft V3 (Channel)',
     8: 'Final Package',
+    9: 'Human Polish',
   }
   return names[phase] || `Phase ${phase} Artifact`
 }

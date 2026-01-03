@@ -3,8 +3,8 @@
 // Pipeline status
 export type PipelineStatus = 'pending' | 'running' | 'completed' | 'failed'
 
-// Phase numbers (0-8)
-export type PhaseNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+// Phase numbers (0-9)
+export type PhaseNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 // Phase names for display
 export const PHASE_NAMES: Record<PhaseNumber, string> = {
@@ -17,6 +17,7 @@ export const PHASE_NAMES: Record<PhaseNumber, string> = {
   6: 'Rhythm Pass',
   7: 'Channel Pass',
   8: 'Final Package',
+  9: 'Human Polish',
 }
 
 // Phase artifact keys in database
@@ -30,6 +31,7 @@ export const PHASE_ARTIFACT_KEYS: Record<PhaseNumber, string | null> = {
   6: 'rhythm_report',
   7: 'channel_pass',
   8: 'final_package',
+  9: 'polished_package',
 }
 
 // Get phase name
@@ -41,4 +43,3 @@ export function getPhaseName(phase: PhaseNumber): string {
 export function getArtifactKey(phase: PhaseNumber): string | null {
   return PHASE_ARTIFACT_KEYS[phase]
 }
-

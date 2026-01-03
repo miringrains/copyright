@@ -12,6 +12,7 @@ import { generateCohesionPass } from '@/core/phases/phase-5-cohesion'
 import { generateRhythmPass } from '@/core/phases/phase-6-rhythm'
 import { generateChannelPass } from '@/core/phases/phase-7-channel'
 import { generateFinalPackage } from '@/core/phases/phase-8-final'
+import { polishOutput } from '@/core/phases/phase-9-polish'
 
 import { 
   createPipelineRun, 
@@ -127,6 +128,12 @@ export class PipelineOrchestrator {
           this.state.messageArchitecture!,
           this.state.channelPass!.draft_v3
         )
+        return this.state.finalPackage
+      })
+
+      // Phase 9: Human Polish (remove AI artifacts)
+      await this.executePhase(9 as PhaseNumber, 'polished_package', async () => {
+        this.state.finalPackage = await polishOutput(this.state.finalPackage!)
         return this.state.finalPackage
       })
 
