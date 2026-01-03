@@ -1,17 +1,24 @@
 import type { ModelConfig, PhaseName, PhaseModelConfig } from './types'
 
 // Phase-to-model routing based on research
-// - Phases I-III: Claude for superior reasoning and strategic thinking
+// - Phases I-III: Claude Sonnet 4.5 for superior reasoning and strategic thinking
 // - Phase IV: GPT-4o for strong prose generation
 // - Phases V-VI: GPT-4o-mini for cost-effective mechanical edits
 // - Phases VII-VIII: GPT-4o for judgment in channel formatting and final QA
+
+// Current model identifiers (January 2026):
+// - Claude Sonnet 4.5: claude-sonnet-4-5-20250929
+// - Claude Haiku 4.5: claude-haiku-4-5-20250929  
+// - Claude Opus 4.5: claude-opus-4-5-20250929
+// - GPT-4o: gpt-4o
+// - GPT-4o-mini: gpt-4o-mini
 
 const PHASE_MODEL_MAP: Record<PhaseName, PhaseModelConfig> = {
   creative_brief: {
     phase: 'creative_brief',
     config: {
       provider: 'anthropic',
-      model: 'claude-3-5-sonnet-latest',
+      model: 'claude-sonnet-4-5-20250929',
       maxTokens: 4096,
       temperature: 0.7,
     },
@@ -21,7 +28,7 @@ const PHASE_MODEL_MAP: Record<PhaseName, PhaseModelConfig> = {
     phase: 'message_architecture',
     config: {
       provider: 'anthropic',
-      model: 'claude-3-5-sonnet-latest',
+      model: 'claude-sonnet-4-5-20250929',
       maxTokens: 4096,
       temperature: 0.6,
     },
@@ -31,7 +38,7 @@ const PHASE_MODEL_MAP: Record<PhaseName, PhaseModelConfig> = {
     phase: 'beat_sheet',
     config: {
       provider: 'anthropic',
-      model: 'claude-3-5-sonnet-latest',
+      model: 'claude-sonnet-4-5-20250929',
       maxTokens: 4096,
       temperature: 0.6,
     },
@@ -118,4 +125,3 @@ export function getPhaseRationale(phase: PhaseName): string {
 export function getAllPhaseConfigs(): PhaseModelConfig[] {
   return Object.values(PHASE_MODEL_MAP)
 }
-

@@ -2,11 +2,13 @@
 
 export type AIProvider = 'anthropic' | 'openai'
 
+// Claude 4.5 models (January 2026)
 export type AnthropicModel = 
-  | 'claude-3-5-sonnet-latest'
-  | 'claude-3-opus-latest'
-  | 'claude-3-haiku-20240307'
+  | 'claude-sonnet-4-5-20250929'
+  | 'claude-haiku-4-5-20250929'
+  | 'claude-opus-4-5-20250929'
 
+// OpenAI models
 export type OpenAIModel = 
   | 'gpt-4o'
   | 'gpt-4o-mini'
@@ -38,4 +40,3 @@ export interface PhaseModelConfig {
   config: ModelConfig
   rationale: string
 }
-
