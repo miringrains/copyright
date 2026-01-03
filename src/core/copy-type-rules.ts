@@ -42,6 +42,16 @@ export const UNIVERSAL_FORBIDDEN = [
   'comprehensive',
   'holistic',
   
+  // Business jargon that means nothing
+  'strategic',
+  'positioning',
+  'diagnostic framework',
+  'audience targeting',
+  'awareness, interest, decision, action',
+  'true constraint',
+  'tailored diagnosis',
+  'strategic needs',
+  
   // Filler phrases
   'in order to',
   'the fact that',
