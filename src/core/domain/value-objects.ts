@@ -3,8 +3,8 @@
 // Pipeline status
 export type PipelineStatus = 'pending' | 'running' | 'completed' | 'failed'
 
-// Phase numbers (0-9)
-export type PhaseNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+// Phase numbers (0-8) - Phase 9 removed, validation now happens in Phase 4
+export type PhaseNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 // Phase names for display
 export const PHASE_NAMES: Record<PhaseNumber, string> = {
@@ -12,12 +12,11 @@ export const PHASE_NAMES: Record<PhaseNumber, string> = {
   1: 'Creative Brief',
   2: 'Message Architecture',
   3: 'Beat Sheet',
-  4: 'Draft V0',
+  4: 'Draft V0 + Validation', // Now includes validation with regeneration
   5: 'Cohesion Pass',
   6: 'Rhythm Pass',
   7: 'Channel Pass',
   8: 'Final Package',
-  9: 'Human Polish',
 }
 
 // Phase artifact keys in database
@@ -31,7 +30,6 @@ export const PHASE_ARTIFACT_KEYS: Record<PhaseNumber, string | null> = {
   6: 'rhythm_report',
   7: 'channel_pass',
   8: 'final_package',
-  9: 'polished_package',
 }
 
 // Get phase name

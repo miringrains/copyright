@@ -11,34 +11,32 @@ import {
   Waves, 
   LayoutGrid, 
   Package,
-  Sparkles,
+  ShieldCheck,
 } from 'lucide-react'
 import { PHASE_NAMES, type PhaseNumber } from '@/core/domain/value-objects'
 import { Card, CardContent } from '@/components/ui/card'
 
-// Phase icons
+// Phase icons - Phase 4 now shows validation shield
 const PHASE_ICONS: Record<number, React.ReactNode> = {
   1: <Brain className="h-4 w-4" />,
   2: <Building2 className="h-4 w-4" />,
   3: <ListMusic className="h-4 w-4" />,
-  4: <PenTool className="h-4 w-4" />,
+  4: <ShieldCheck className="h-4 w-4" />, // Now represents validated draft
   5: <Link2 className="h-4 w-4" />,
   6: <Waves className="h-4 w-4" />,
   7: <LayoutGrid className="h-4 w-4" />,
   8: <Package className="h-4 w-4" />,
-  9: <Sparkles className="h-4 w-4" />,
 }
 
 const PHASE_SHORT: Record<number, string> = {
   1: 'Brief',
   2: 'Architecture',
-  3: 'Beat Sheet',
-  4: 'Draft',
+  3: 'Rules',
+  4: 'Validate',
   5: 'Cohesion',
   6: 'Rhythm',
   7: 'Channel',
   8: 'Package',
-  9: 'Polish',
 }
 
 interface PipelineProgressProps {
@@ -66,7 +64,7 @@ export function PipelineProgress({ currentPhase, status }: PipelineProgressProps
 
   const progress = status === 'completed' 
     ? 100 
-    : Math.max(0, ((currentPhase - 1) / 9) * 100 + (status === 'running' ? 5 : 0))
+    : Math.max(0, ((currentPhase - 1) / 8) * 100 + (status === 'running' ? 5 : 0))
 
   return (
     <Card className="border overflow-hidden bg-background/50 backdrop-blur">
@@ -87,7 +85,7 @@ export function PipelineProgress({ currentPhase, status }: PipelineProgressProps
             </span>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {currentPhase}/9
+            {currentPhase}/8
           </span>
         </div>
 

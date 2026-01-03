@@ -12,7 +12,7 @@ import { generateCohesionPass } from '@/core/phases/phase-5-cohesion'
 import { generateRhythmPass } from '@/core/phases/phase-6-rhythm'
 import { generateChannelPass } from '@/core/phases/phase-7-channel'
 import { generateFinalPackage } from '@/core/phases/phase-8-final'
-import { polishOutput } from '@/core/phases/phase-9-polish'
+// Phase 9 removed - validation now happens in Phase 4 with hard rules enforcement
 
 import { 
   createPipelineRun, 
@@ -131,18 +131,9 @@ export class PipelineOrchestrator {
         return this.state.finalPackage
       })
 
-      // Phase 9: Human Polish (remove AI artifacts)
-      // This phase doesn't save to database separately - it modifies finalPackage in place
-      this.state.currentPhase = 9
-      await this.options.onPhaseStart?.(9, 'Human Polish')
-      try {
-        this.state.finalPackage = await polishOutput(this.state.finalPackage!)
-        await this.options.onPhaseComplete?.(9, 'Human Polish', this.state.finalPackage)
-      } catch (error) {
-        // If polish fails, continue with unpolished version
-        console.error('Polish pass failed, using unpolished output:', error)
-        await this.options.onPhaseComplete?.(9, 'Human Polish', this.state.finalPackage)
-      }
+      // Phase 9 removed - validation with hard rules enforcement now happens in Phase 4
+      // The draft is regenerated if it violates writing rules, producing cleaner output
+      // without needing a separate polish pass
 
       // Complete the run
       await completePipelineRun(

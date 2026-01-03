@@ -19,13 +19,12 @@ interface PipelineResult {
 const PHASE_NAMES: Record<number, string> = {
   1: 'Creative Brief',
   2: 'Message Architecture',
-  3: 'Beat Sheet',
-  4: 'Draft V0',
+  3: 'Beat Sheet + Rules',
+  4: 'Validated Draft',
   5: 'Cohesion Pass',
   6: 'Rhythm Pass',
   7: 'Channel Pass',
   8: 'Final Package',
-  9: 'Human Polish',
 }
 
 export default function HomePage() {
@@ -122,7 +121,7 @@ export default function HomePage() {
                   addLog('validation', data.phase, data.message)
                   break
                 case 'complete':
-                  setCurrentPhase(9)
+                  setCurrentPhase(8)
                   setStatus('completed')
                   setFinalPackage(data.finalPackage || null)
                   addLog('complete', 8, 'Pipeline complete')

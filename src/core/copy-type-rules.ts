@@ -1,0 +1,451 @@
+/**
+ * Copy Type Rules - Structural requirements enforced per copy type
+ * These are NOT suggestions - they are validated and violations cause regeneration
+ * 
+ * Based on writing school principles:
+ * - Show don't tell
+ * - Be specific
+ * - Cut filler
+ * - Active voice
+ * - One idea per sentence
+ * - Lead with news
+ */
+
+// Universal forbidden words/phrases - apply to ALL copy types
+export const UNIVERSAL_FORBIDDEN = [
+  // Abstract nouns without referent
+  'potential',
+  'journey',
+  'experience',
+  'solution',
+  'leverage',
+  'synergy',
+  'optimize',
+  'enhance',
+  'empower',
+  'revolutionize',
+  'transform',
+  'elevate',
+  'streamline',
+  'cutting-edge',
+  'game-changing',
+  'next-level',
+  'world-class',
+  'best-in-class',
+  'state-of-the-art',
+  
+  // Filler phrases
+  'in order to',
+  'the fact that',
+  'it is important to note',
+  'it goes without saying',
+  'needless to say',
+  'at the end of the day',
+  'when all is said and done',
+  'all things considered',
+  'as a matter of fact',
+  
+  // Hollow enthusiasm
+  'amazing',
+  'incredible',
+  'awesome',
+  'fantastic',
+  'unbelievable',
+  'mind-blowing',
+  'super',
+  'epic',
+  
+  // Weak hedging
+  'just',
+  'simply',
+  'really',
+  'very',
+  'quite',
+  'basically',
+  'essentially',
+  'actually',
+  
+  // False empathy
+  'no worries',
+  "don't worry",
+  'rest assured',
+  'we understand',
+  
+  // Robotic transitions
+  'furthermore',
+  'moreover',
+  'additionally',
+  'in conclusion',
+  'to summarize',
+  
+  // Salesy urgency (unless explicitly requested)
+  'act now',
+  "don't miss out",
+  'limited time',
+  'hurry',
+  'before it\'s too late',
+]
+
+// Forbidden patterns (regex-matchable)
+export const UNIVERSAL_FORBIDDEN_PATTERNS = [
+  /you will (be able to|see|notice|experience|feel)/i,
+  /you can (easily|quickly|simply)/i,
+  /helps you to/i,
+  /allows you to/i,
+  /enables you to/i,
+  /designed to help/i,
+  /built to help/i,
+  /we (believe|think|feel) that/i,
+  /unlock your/i,
+  /take your .* to the next level/i,
+  /supercharge your/i,
+  /turbocharge your/i,
+  /—/g, // Em dashes - always replace with periods or commas
+]
+
+export interface BeatStructure {
+  maxWords: number
+  minWords?: number
+  requiredElements: ('specific_noun' | 'number' | 'proper_noun' | 'imperative' | 'question')[]
+  firstWordType: ('noun' | 'verb' | 'imperative' | 'pronoun' | 'question_word')[]
+  forbidden: string[] // Additional forbidden words for this beat type
+}
+
+export interface CopyTypeRules {
+  type: string
+  description: string
+  globalMaxSentenceWords: number
+  maxAdjectivesPerNoun: number
+  requiresSpecificDetailEveryNSentences: number
+  beatStructures: Record<string, BeatStructure>
+  additionalForbidden: string[]
+  formatRules: string[]
+}
+
+export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
+  email_sequence: {
+    type: 'email_sequence',
+    description: 'Transactional or nurture emails',
+    globalMaxSentenceWords: 18,
+    maxAdjectivesPerNoun: 1,
+    requiresSpecificDetailEveryNSentences: 3,
+    beatStructures: {
+      hook: {
+        maxWords: 12,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: ['hi there', 'hey there', 'dear'],
+      },
+      context: {
+        maxWords: 20,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: [],
+      },
+      claim: {
+        maxWords: 15,
+        requiredElements: ['specific_noun', 'number'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 25,
+        requiredElements: ['number', 'proper_noun'],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: [],
+      },
+      cta: {
+        maxWords: 8,
+        requiredElements: ['imperative'],
+        firstWordType: ['imperative', 'verb'],
+        forbidden: ['click here', 'learn more'],
+      },
+      kicker: {
+        maxWords: 10,
+        requiredElements: [],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: [],
+      },
+    },
+    additionalForbidden: [
+      'hope this finds you well',
+      'reaching out',
+      'touching base',
+      'circling back',
+      'per my last email',
+    ],
+    formatRules: [
+      'Opening line must be statement or imperative, not greeting',
+      'Every paragraph must contain one specific detail',
+      'CTA must be single action under 5 words',
+      'Maximum 3 paragraphs between sender name mentions',
+    ],
+  },
+
+  landing_page: {
+    type: 'landing_page',
+    description: 'Website landing page or homepage',
+    globalMaxSentenceWords: 20,
+    maxAdjectivesPerNoun: 1,
+    requiresSpecificDetailEveryNSentences: 2,
+    beatStructures: {
+      hook: {
+        maxWords: 10,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: ['welcome to', 'introducing'],
+      },
+      claim: {
+        maxWords: 15,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 20,
+        requiredElements: ['number', 'proper_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      mechanism: {
+        maxWords: 25,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      objection: {
+        maxWords: 20,
+        requiredElements: [],
+        firstWordType: ['noun', 'verb', 'question_word'],
+        forbidden: [],
+      },
+      cta: {
+        maxWords: 6,
+        requiredElements: ['imperative'],
+        firstWordType: ['imperative', 'verb'],
+        forbidden: ['get started', 'learn more', 'sign up now'],
+      },
+    },
+    additionalForbidden: [
+      'helps you',
+      'designed for',
+      'perfect for',
+      'ideal for',
+    ],
+    formatRules: [
+      'First line must state what it does, not what it "helps with"',
+      'Every section needs a scannable heading',
+      'Front-load paragraphs with the key point',
+      'Use specific numbers in proof sections',
+    ],
+  },
+
+  website_copy: {
+    type: 'website_copy',
+    description: 'General website pages (about, features, etc.)',
+    globalMaxSentenceWords: 22,
+    maxAdjectivesPerNoun: 1,
+    requiresSpecificDetailEveryNSentences: 3,
+    beatStructures: {
+      hook: {
+        maxWords: 12,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      claim: {
+        maxWords: 18,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 25,
+        requiredElements: ['number'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      mechanism: {
+        maxWords: 30,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      cta: {
+        maxWords: 8,
+        requiredElements: ['imperative'],
+        firstWordType: ['imperative', 'verb'],
+        forbidden: [],
+      },
+    },
+    additionalForbidden: [],
+    formatRules: [
+      'F-pattern optimization: front-load every paragraph',
+      'Use subheadings every 100-150 words',
+      'Make scannable with bullets for lists of 3+ items',
+    ],
+  },
+
+  social_post: {
+    type: 'social_post',
+    description: 'Social media posts (LinkedIn, X, etc.)',
+    globalMaxSentenceWords: 15,
+    maxAdjectivesPerNoun: 1,
+    requiresSpecificDetailEveryNSentences: 2,
+    beatStructures: {
+      hook: {
+        maxWords: 8,
+        requiredElements: [],
+        firstWordType: ['noun', 'verb', 'question_word'],
+        forbidden: ['did you know', 'hot take'],
+      },
+      claim: {
+        maxWords: 12,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 15,
+        requiredElements: ['number'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      cta: {
+        maxWords: 6,
+        requiredElements: [],
+        firstWordType: ['verb', 'question_word'],
+        forbidden: ['link in bio'],
+      },
+    },
+    additionalForbidden: [
+      'thread',
+      'unpopular opinion',
+      'hear me out',
+      'let that sink in',
+    ],
+    formatRules: [
+      'First line must be complete thought, not teaser',
+      'Line breaks are pacing - use intentionally',
+      'Close with implication or invitation, not generic CTA',
+    ],
+  },
+
+  article: {
+    type: 'article',
+    description: 'Blog posts, essays, long-form content',
+    globalMaxSentenceWords: 25,
+    maxAdjectivesPerNoun: 2,
+    requiresSpecificDetailEveryNSentences: 4,
+    beatStructures: {
+      hook: {
+        maxWords: 20,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: [],
+      },
+      context: {
+        maxWords: 30,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      claim: {
+        maxWords: 20,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 40,
+        requiredElements: ['number', 'proper_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      kicker: {
+        maxWords: 15,
+        requiredElements: [],
+        firstWordType: ['noun', 'verb', 'pronoun'],
+        forbidden: [],
+      },
+    },
+    additionalForbidden: [],
+    formatRules: [
+      'Nut graf in first 2 paragraphs',
+      'Subheads every 250-300 words',
+      'Each section must have clear thesis',
+    ],
+  },
+
+  sales_page: {
+    type: 'sales_page',
+    description: 'Long-form sales letters, VSL scripts',
+    globalMaxSentenceWords: 20,
+    maxAdjectivesPerNoun: 1,
+    requiresSpecificDetailEveryNSentences: 2,
+    beatStructures: {
+      hook: {
+        maxWords: 15,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb', 'question_word'],
+        forbidden: [],
+      },
+      claim: {
+        maxWords: 15,
+        requiredElements: ['specific_noun', 'number'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 30,
+        requiredElements: ['number', 'proper_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      objection: {
+        maxWords: 25,
+        requiredElements: [],
+        firstWordType: ['noun', 'verb', 'question_word'],
+        forbidden: [],
+      },
+      cta: {
+        maxWords: 10,
+        requiredElements: ['imperative'],
+        firstWordType: ['imperative', 'verb'],
+        forbidden: [],
+      },
+    },
+    additionalForbidden: [],
+    formatRules: [
+      'Headline stack at top',
+      'Proof blocks clearly separated',
+      'Each claim followed by proof within 2 sentences',
+    ],
+  },
+}
+
+/**
+ * Get rules for a copy type, with fallback to website_copy
+ */
+export function getCopyTypeRules(copyType: string): CopyTypeRules {
+  return COPY_TYPE_RULES[copyType] || COPY_TYPE_RULES.website_copy
+}
+
+/**
+ * Get all forbidden terms for a copy type (universal + type-specific)
+ */
+export function getAllForbiddenTerms(copyType: string): string[] {
+  const rules = getCopyTypeRules(copyType)
+  return [...UNIVERSAL_FORBIDDEN, ...rules.additionalForbidden]
+}
+
+/**
+ * Get beat-specific forbidden terms
+ */
+export function getBeatForbiddenTerms(copyType: string, beatFunction: string): string[] {
+  const rules = getCopyTypeRules(copyType)
+  const beatStructure = rules.beatStructures[beatFunction]
+  if (!beatStructure) return getAllForbiddenTerms(copyType)
+  return [...getAllForbiddenTerms(copyType), ...beatStructure.forbidden]
+}
+
