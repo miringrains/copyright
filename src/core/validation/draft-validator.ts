@@ -93,17 +93,21 @@ function checkForbiddenPatterns(text: string, patterns: RegExp[]): Violation[] {
 }
 
 /**
- * Check for em dashes
+ * Check for em dash OVERUSE (more than 2 per piece is too much)
  */
-function checkEmDashes(text: string): Violation[] {
+function checkEmDashOveruse(text: string): Violation[] {
   const violations: Violation[] = []
   
-  if (text.includes('—') || text.includes('--')) {
+  const emDashCount = (text.match(/—/g) || []).length
+  const doubleDashCount = (text.match(/--/g) || []).length
+  const total = emDashCount + doubleDashCount
+  
+  if (total > 3) {
     violations.push({
       type: 'em_dash',
-      location: 'Em dash found',
-      details: 'Em dashes (—) are forbidden. Use periods or commas instead.',
-      severity: 'error',
+      location: `${total} em dashes found`,
+      details: 'Too many em dashes. Use sparingly for rhythm, not decoration.',
+      severity: 'warning', // Warning, not error - some is fine
     })
   }
   
@@ -117,14 +121,26 @@ function checkSentenceLengths(text: string, maxWords: number): Violation[] {
   const violations: Violation[] = []
   const sentences = splitIntoSentences(text)
   
+  // Allow some flexibility - only flag really long sentences
+  const hardMax = maxWords + 8 // e.g., if max is 22, hard error at 30
+  
   for (let i = 0; i < sentences.length; i++) {
     const wordCount = countWords(sentences[i])
-    if (wordCount > maxWords) {
+    if (wordCount > hardMax) {
+      // Only error on very long sentences
       violations.push({
         type: 'sentence_too_long',
         location: `Sentence ${i + 1}`,
-        details: `Sentence has ${wordCount} words but max is ${maxWords}: "${sentences[i].slice(0, 50)}..."`,
+        details: `Sentence has ${wordCount} words (max ${hardMax}). Break it up.`,
         severity: 'error',
+      })
+    } else if (wordCount > maxWords) {
+      // Warning for moderately long - natural rhythm sometimes needs this
+      violations.push({
+        type: 'sentence_too_long',
+        location: `Sentence ${i + 1}`,
+        details: `Sentence has ${wordCount} words. Consider shortening for rhythm.`,
+        severity: 'warning',
       })
     }
   }
@@ -266,7 +282,7 @@ export function validateDraft(
   // Run all checks
   violations.push(...checkForbiddenWords(draft, forbiddenWords))
   violations.push(...checkForbiddenPatterns(draft, UNIVERSAL_FORBIDDEN_PATTERNS))
-  violations.push(...checkEmDashes(draft))
+  violations.push(...checkEmDashOveruse(draft))
   violations.push(...checkSentenceLengths(draft, maxSentenceWords))
   violations.push(...checkAdjectiveStacking(draft, maxAdjectives))
   violations.push(...checkFirstWords(draft))

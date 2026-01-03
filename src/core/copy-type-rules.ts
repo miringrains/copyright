@@ -108,7 +108,7 @@ export const UNIVERSAL_FORBIDDEN_PATTERNS = [
   /take your .* to the next level/i,
   /supercharge your/i,
   /turbocharge your/i,
-  /—/g, // Em dashes - always replace with periods or commas
+  // Em dashes now allowed for rhythm - checked for overuse separately
 ]
 
 export interface BeatStructure {
@@ -141,10 +141,10 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
     type: 'email_sequence',
     description: 'Transactional or nurture emails',
     // STRICT LIMITS - Emails must be SHORT and FOCUSED
-    maxBeats: 4, // hook, problem, solution+proof, cta - THAT'S IT
-    maxTotalWords: 120, // Hard limit - forces brevity
-    targetWords: 80, // Ideal length
-    globalMaxSentenceWords: 15, // Shorter sentences for email
+    maxBeats: 4, // hook, tension, resolution, action
+    maxTotalWords: 150, // Slightly more room for natural flow
+    targetWords: 100, // Ideal length
+    globalMaxSentenceWords: 22, // Allow for natural rhythm - some short, some longer
     maxAdjectivesPerNoun: 1,
     requiresSpecificDetailEveryNSentences: 2,
     beatStructures: {
