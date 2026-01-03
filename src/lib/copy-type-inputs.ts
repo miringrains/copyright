@@ -168,9 +168,18 @@ export const COPY_TYPE_CONFIGS: Record<string, CopyTypeConfig> = {
     type: 'email_sequence',
     label: 'Email Sequence',
     description: 'Nurture sequence, launch emails, or onboarding series',
-    firecrawlEnabled: false,
+    firecrawlEnabled: true,
+    firecrawlDescription: 'Scrape your website to understand product details and brand voice',
     requiredFields: [
       COMMON_FIELDS.companyName,
+      {
+        id: 'destination_url',
+        label: 'Your Website',
+        type: 'url',
+        placeholder: 'https://yourcompany.com',
+        description: 'We\'ll scrape this to get accurate product info and brand voice',
+        required: true,
+      },
       {
         id: 'sequence_type',
         label: 'Sequence Type',

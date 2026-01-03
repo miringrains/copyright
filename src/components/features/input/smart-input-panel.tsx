@@ -97,9 +97,11 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
   }
 
   // Build TaskSpec and generate
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!config) return
 
+    setIsResearching(true)
+    
     // Build research context from form data
     const researchContext: string[] = []
     
@@ -116,10 +118,32 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
       }
     }
 
-    // Add Firecrawl research if available
+    // Auto-scrape the company website if URL provided
+    const companyUrl = formData['destination_url'] as string
+    if (companyUrl && companyUrl.startsWith('http')) {
+      try {
+        const response = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: [companyUrl] }),
+        })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.content) {
+            researchContext.push(`\n--- COMPANY WEBSITE DATA ---\n${data.content}`)
+          }
+        }
+      } catch (error) {
+        console.error('Company website scrape failed:', error)
+      }
+    }
+
+    // Add competitor research if available
     if (researchData) {
       researchContext.push(`\n--- COMPETITOR RESEARCH ---\n${researchData}`)
     }
+
+    setIsResearching(false)
 
     const taskSpec: TaskSpec = {
       copy_type: getCopyTypeEnum(selectedType),

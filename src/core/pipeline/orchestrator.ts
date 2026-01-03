@@ -132,10 +132,17 @@ export class PipelineOrchestrator {
       })
 
       // Phase 9: Human Polish (remove AI artifacts)
-      await this.executePhase(9 as PhaseNumber, 'polished_package', async () => {
+      // This phase doesn't save to database separately - it modifies finalPackage in place
+      this.state.currentPhase = 9
+      await this.options.onPhaseStart?.(9, 'Human Polish')
+      try {
         this.state.finalPackage = await polishOutput(this.state.finalPackage!)
-        return this.state.finalPackage
-      })
+        await this.options.onPhaseComplete?.(9, 'Human Polish', this.state.finalPackage)
+      } catch (error) {
+        // If polish fails, continue with unpolished version
+        console.error('Polish pass failed, using unpolished output:', error)
+        await this.options.onPhaseComplete?.(9, 'Human Polish', this.state.finalPackage)
+      }
 
       // Complete the run
       await completePipelineRun(
