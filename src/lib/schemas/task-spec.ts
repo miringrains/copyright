@@ -75,11 +75,11 @@ export const VoiceProfileSchema = z.object({
 })
 export type VoiceProfile = z.infer<typeof VoiceProfileSchema>
 
-// Length budget
+// Length budget (no min/max constraints - Anthropic API doesn't support them)
 export const LengthBudgetSchema = z.object({
   unit: z.enum(['words', 'chars']),
-  target: z.number().int().min(1),
-  hard_max: z.number().int().min(1),
+  target: z.number(),
+  hard_max: z.number(),
 })
 export type LengthBudget = z.infer<typeof LengthBudgetSchema>
 

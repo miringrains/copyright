@@ -33,6 +33,7 @@ export default function HomePage() {
   const [finalPackage, setFinalPackage] = useState<FinalPackage | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
+  const [currentProcess, setCurrentProcess] = useState<string | undefined>()
 
   const addLog = useCallback((type: ActivityLog['type'], phase: number, message: string, detail?: string) => {
     setActivityLogs(prev => [...prev, createActivityLog(type, phase, message, detail)])
@@ -44,12 +45,11 @@ export default function HomePage() {
     setFinalPackage(null)
     setError(null)
     setActivityLogs([])
+    setCurrentProcess('Initializing pipeline...')
 
-    // Add initial log
-    addLog('phase_start', 1, '🚀 Starting pipeline...', `Copy type: ${taskSpec.copy_type}`)
+    addLog('phase_start', 1, `Starting: ${taskSpec.copy_type}`)
 
     try {
-      // Use Server-Sent Events for real-time updates
       const response = await fetch('/api/pipeline/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,7 +57,8 @@ export default function HomePage() {
       })
 
       if (!response.ok) {
-        // Fallback to regular API if streaming not available
+        // Fallback to regular API
+        setCurrentProcess('Processing (non-streaming)...')
         const fallbackResponse = await fetch('/api/pipeline', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -69,14 +70,16 @@ export default function HomePage() {
         if (!result.success) {
           setStatus('failed')
           setError(result.error || 'Pipeline failed')
-          addLog('complete', currentPhase, '❌ Pipeline failed', result.error)
+          addLog('complete', currentPhase, `Failed: ${result.error}`)
+          setCurrentProcess(undefined)
           return
         }
 
         setCurrentPhase(8)
         setStatus('completed')
         setFinalPackage(result.finalPackage || null)
-        addLog('complete', 8, '✓ Pipeline completed successfully!')
+        addLog('complete', 8, 'Pipeline complete')
+        setCurrentProcess(undefined)
         return
       }
 
@@ -103,31 +106,36 @@ export default function HomePage() {
               switch (data.type) {
                 case 'phase_start':
                   setCurrentPhase(data.phase)
-                  addLog('phase_start', data.phase, `Phase ${data.phase}: ${PHASE_NAMES[data.phase]}`, data.detail)
+                  setCurrentProcess(`${PHASE_NAMES[data.phase]}...`)
+                  addLog('phase_start', data.phase, `Phase ${data.phase}: ${PHASE_NAMES[data.phase]}`)
                   break
                 case 'thinking':
-                  addLog('thinking', data.phase, data.message, data.detail)
+                  setCurrentProcess(data.message)
+                  addLog('thinking', data.phase, data.message)
                   break
                 case 'artifact':
-                  addLog('artifact', data.phase, `Generated: ${data.artifact}`, data.preview)
+                  setCurrentProcess(`Generated ${data.artifact}`)
+                  addLog('artifact', data.phase, `✓ ${data.artifact}`)
                   break
                 case 'validation':
-                  addLog('validation', data.phase, data.message, data.detail)
+                  addLog('validation', data.phase, data.message)
                   break
                 case 'complete':
                   setCurrentPhase(8)
                   setStatus('completed')
                   setFinalPackage(data.finalPackage || null)
-                  addLog('complete', 8, '✓ Pipeline completed successfully!')
+                  addLog('complete', 8, 'Pipeline complete')
+                  setCurrentProcess(undefined)
                   break
                 case 'error':
                   setStatus('failed')
                   setError(data.message)
-                  addLog('complete', data.phase, `❌ ${data.message}`)
+                  addLog('complete', data.phase, `Error: ${data.message}`)
+                  setCurrentProcess(undefined)
                   break
               }
             } catch {
-              // Ignore parsing errors for incomplete JSON
+              // Ignore parsing errors
             }
           }
         }
@@ -136,7 +144,8 @@ export default function HomePage() {
       setStatus('failed')
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
-      addLog('complete', currentPhase, '❌ Pipeline failed', errorMessage)
+      addLog('complete', currentPhase, `Error: ${errorMessage}`)
+      setCurrentProcess(undefined)
     }
   }
 
@@ -156,14 +165,18 @@ export default function HomePage() {
       {/* Input Panel */}
       <InputPanel onGenerate={handleGenerate} isGenerating={status === 'running'} />
 
-      {/* Progress & Activity Grid */}
+      {/* Progress & Activity */}
       {status !== 'idle' && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
           {/* Pipeline Progress */}
           <PipelineProgress currentPhase={currentPhase} status={status} />
           
           {/* Live Activity */}
-          <LiveActivity logs={activityLogs} isActive={status === 'running'} />
+          <LiveActivity 
+            logs={activityLogs} 
+            isActive={status === 'running'} 
+            currentProcess={currentProcess}
+          />
         </div>
       )}
 

@@ -14,11 +14,11 @@ export const BeatFunctionSchema = z.enum([
 ])
 export type BeatFunction = z.infer<typeof BeatFunctionSchema>
 
-// Target length for a beat
+// Target length for a beat (no min/max constraints - Anthropic API doesn't support them)
 export const BeatLengthSchema = z.object({
   unit: z.enum(['words', 'chars']),
-  min: z.number().int().min(0),
-  max: z.number().int().min(1),
+  min: z.number(),
+  max: z.number(),
 })
 export type BeatLength = z.infer<typeof BeatLengthSchema>
 
@@ -34,18 +34,18 @@ export const BeatSchema = z.object({
 })
 export type Beat = z.infer<typeof BeatSchema>
 
-// Total length
+// Total length (no min/max constraints - Anthropic API doesn't support them)
 export const TotalLengthSchema = z.object({
   unit: z.enum(['words', 'chars']),
-  target: z.number().int().min(1),
-  hard_max: z.number().int().min(1),
+  target: z.number(),
+  hard_max: z.number(),
 })
 export type TotalLength = z.infer<typeof TotalLengthSchema>
 
 // Full BeatSheet schema (Artifact C)
 export const BeatSheetSchema = z.object({
   total_length: TotalLengthSchema,
-  beats: z.array(BeatSchema).min(1),
+  beats: z.array(BeatSchema),
   format_rules: z.array(z.string()).describe('Channel-specific formatting constraints'),
   forbidden_moves: z.array(z.string()).describe('Things that would create AI slop'),
   // Global optional keys

@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Sparkles, Terminal, Zap } from 'lucide-react'
+import { Terminal, Sparkles } from 'lucide-react'
 
 interface ActivityLog {
   id: string
@@ -17,20 +16,11 @@ interface ActivityLog {
 interface LiveActivityProps {
   logs: ActivityLog[]
   isActive: boolean
+  currentProcess?: string
 }
 
-export function LiveActivity({ logs, isActive }: LiveActivityProps) {
+export function LiveActivity({ logs, isActive, currentProcess }: LiveActivityProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [showCursor, setShowCursor] = useState(true)
-
-  // Blinking cursor effect
-  useEffect(() => {
-    if (!isActive) return
-    const interval = setInterval(() => {
-      setShowCursor((prev) => !prev)
-    }, 530)
-    return () => clearInterval(interval)
-  }, [isActive])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -42,34 +32,34 @@ export function LiveActivity({ logs, isActive }: LiveActivityProps) {
   const getLogStyle = (type: ActivityLog['type']) => {
     switch (type) {
       case 'phase_start':
-        return 'text-primary font-semibold'
+        return 'text-primary font-medium'
       case 'thinking':
-        return 'text-muted-foreground italic'
+        return 'text-zinc-400'
       case 'artifact':
-        return 'text-green-500 dark:text-green-400'
+        return 'text-green-400'
       case 'validation':
-        return 'text-yellow-600 dark:text-yellow-400'
+        return 'text-amber-400'
       case 'complete':
         return 'text-primary font-bold'
       default:
-        return 'text-foreground'
+        return 'text-zinc-300'
     }
   }
 
-  const getLogIcon = (type: ActivityLog['type']) => {
+  const getLogPrefix = (type: ActivityLog['type']) => {
     switch (type) {
       case 'phase_start':
-        return <Zap className="h-3 w-3 text-primary" />
+        return '▸'
       case 'thinking':
-        return <Sparkles className="h-3 w-3 text-muted-foreground animate-pulse" />
+        return '○'
       case 'artifact':
-        return <span className="text-green-500">●</span>
+        return '●'
       case 'validation':
-        return <span className="text-yellow-500">◆</span>
+        return '◆'
       case 'complete':
-        return <span className="text-primary">✓</span>
+        return '✓'
       default:
-        return null
+        return '·'
     }
   }
 
@@ -78,28 +68,30 @@ export function LiveActivity({ logs, isActive }: LiveActivityProps) {
   }
 
   return (
-    <Card className="border-2 bg-zinc-950 text-zinc-100 font-mono text-sm overflow-hidden">
-      <CardHeader className="py-3 px-4 border-b border-zinc-800 bg-zinc-900">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-primary" />
-          <span>Live Activity</span>
+    <Card className="border bg-zinc-950 text-zinc-100 font-mono text-xs overflow-hidden">
+      <CardHeader className="py-2 px-3 border-b border-zinc-800 bg-zinc-900/80">
+        <CardTitle className="text-xs font-medium flex items-center gap-2">
+          <Terminal className="h-3.5 w-3.5 text-primary" />
+          <span className="text-zinc-300">Activity</span>
           {isActive && (
             <span className="ml-auto flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
               </span>
-              <span className="text-xs text-muted-foreground">Processing</span>
             </span>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[200px]" ref={scrollRef}>
-          <div className="p-4 space-y-1.5">
+        <div 
+          ref={scrollRef}
+          className="h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
+        >
+          <div className="p-3 space-y-1">
             {logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-2 group">
-                <span className="text-zinc-600 text-xs tabular-nums shrink-0 pt-0.5">
+              <div key={log.id} className="flex items-start gap-2 leading-relaxed">
+                <span className="text-zinc-600 tabular-nums shrink-0 select-none">
                   {log.timestamp.toLocaleTimeString('en-US', { 
                     hour12: false, 
                     hour: '2-digit', 
@@ -107,24 +99,19 @@ export function LiveActivity({ logs, isActive }: LiveActivityProps) {
                     second: '2-digit' 
                   })}
                 </span>
-                <span className="shrink-0 pt-0.5">{getLogIcon(log.type)}</span>
-                <div className="flex-1 min-w-0">
-                  <span className={getLogStyle(log.type)}>
-                    {log.message}
-                  </span>
-                  {log.detail && (
-                    <span className="block text-xs text-zinc-500 truncate mt-0.5">
-                      {log.detail}
-                    </span>
-                  )}
-                </div>
+                <span className={`shrink-0 ${getLogStyle(log.type)}`}>
+                  {getLogPrefix(log.type)}
+                </span>
+                <span className={getLogStyle(log.type)}>
+                  {log.message}
+                </span>
               </div>
             ))}
             
-            {/* Blinking cursor */}
-            {isActive && (
-              <div className="flex items-center gap-2">
-                <span className="text-zinc-600 text-xs tabular-nums">
+            {/* Current process indicator */}
+            {isActive && currentProcess && (
+              <div className="flex items-start gap-2 leading-relaxed animate-pulse">
+                <span className="text-zinc-600 tabular-nums shrink-0 select-none">
                   {new Date().toLocaleTimeString('en-US', { 
                     hour12: false, 
                     hour: '2-digit', 
@@ -132,11 +119,12 @@ export function LiveActivity({ logs, isActive }: LiveActivityProps) {
                     second: '2-digit' 
                   })}
                 </span>
-                <span className={`w-2 h-4 bg-primary ${showCursor ? 'opacity-100' : 'opacity-0'}`} />
+                <Sparkles className="h-3 w-3 text-primary shrink-0 mt-0.5 animate-pulse" />
+                <span className="text-zinc-400 italic">{currentProcess}</span>
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   )
@@ -160,4 +148,3 @@ export function createActivityLog(
 }
 
 export type { ActivityLog }
-
