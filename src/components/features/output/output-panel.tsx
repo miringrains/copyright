@@ -70,7 +70,18 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
   }
 
   if (!finalPackage) {
-    return null
+    return (
+      <Card className="border-2 border-dashed">
+        <CardContent className="flex min-h-[300px] items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <div className="mb-2 text-lg font-medium">Your copy will appear here</div>
+            <p className="text-sm">
+              Fill in your content and click Generate to get started.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   const tabs = [
@@ -131,9 +142,9 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
         </Tabs>
 
         {/* Extras */}
-        {(finalPackage.extras.headlines?.length > 0 || 
-          finalPackage.extras.email_subject_lines?.length > 0 ||
-          finalPackage.extras.cta_options?.length > 0) && (
+        {(finalPackage.extras.headlines?.length || 
+          finalPackage.extras.email_subject_lines?.length ||
+          finalPackage.extras.cta_options?.length) && (
           <div className="mt-6 space-y-4">
             {finalPackage.extras.headlines && finalPackage.extras.headlines.length > 0 && (
               <div>
@@ -206,3 +217,4 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
     </Card>
   )
 }
+

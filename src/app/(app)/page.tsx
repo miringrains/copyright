@@ -162,7 +162,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Input Panel */}
+      {/* Smart Input Panel */}
       <SmartInputPanel onGenerate={handleGenerate} isGenerating={status === 'running'} />
 
       {/* Progress & Activity */}
