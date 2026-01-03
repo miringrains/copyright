@@ -19,15 +19,21 @@ export async function generateBeatSheet(
   const copyTypeRules = getCopyTypeRules(taskSpec.copy_type)
   const forbiddenTerms = getAllForbiddenTerms(taskSpec.copy_type)
   
-  // Build rules context for the prompt
+  // Build rules context for the prompt - emphasize beat limits
   const rulesContext = {
     type: copyTypeRules.type,
+    // CRITICAL: Beat limits
+    maxBeats: copyTypeRules.maxBeats,
+    requiredBeatSequence: copyTypeRules.requiredBeatSequence,
+    maxTotalWords: copyTypeRules.maxTotalWords,
+    targetWords: copyTypeRules.targetWords,
+    // Sentence/structure rules
     maxSentenceWords: copyTypeRules.globalMaxSentenceWords,
     maxAdjectivesPerNoun: copyTypeRules.maxAdjectivesPerNoun,
     requiresSpecificDetailEveryNSentences: copyTypeRules.requiresSpecificDetailEveryNSentences,
     formatRules: copyTypeRules.formatRules,
     beatStructures: copyTypeRules.beatStructures,
-    forbiddenTerms: forbiddenTerms.slice(0, 30), // Top 30 most important
+    forbiddenTerms: forbiddenTerms.slice(0, 40), // Top 40 most important
   }
   
   const result = await generateWithRetry({

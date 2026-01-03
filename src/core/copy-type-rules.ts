@@ -27,12 +27,20 @@ export const UNIVERSAL_FORBIDDEN = [
   'transform',
   'elevate',
   'streamline',
+  'unlock', // THE classic AI word
   'cutting-edge',
   'game-changing',
   'next-level',
   'world-class',
   'best-in-class',
   'state-of-the-art',
+  'seamless',
+  'seamlessly',
+  'effortless',
+  'effortlessly',
+  'robust',
+  'comprehensive',
+  'holistic',
   
   // Filler phrases
   'in order to',
@@ -114,10 +122,16 @@ export interface BeatStructure {
 export interface CopyTypeRules {
   type: string
   description: string
+  // Length constraints
+  maxBeats: number // Maximum number of beats allowed
+  maxTotalWords: number // Hard word limit for entire piece
+  targetWords: number // Target word count
   globalMaxSentenceWords: number
   maxAdjectivesPerNoun: number
   requiresSpecificDetailEveryNSentences: number
+  // Structure
   beatStructures: Record<string, BeatStructure>
+  requiredBeatSequence: string[] // The beats that MUST appear in order
   additionalForbidden: string[]
   formatRules: string[]
 }
@@ -126,106 +140,111 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
   email_sequence: {
     type: 'email_sequence',
     description: 'Transactional or nurture emails',
-    globalMaxSentenceWords: 18,
+    // STRICT LIMITS - Emails must be SHORT and FOCUSED
+    maxBeats: 4, // hook, problem, solution+proof, cta - THAT'S IT
+    maxTotalWords: 120, // Hard limit - forces brevity
+    targetWords: 80, // Ideal length
+    globalMaxSentenceWords: 15, // Shorter sentences for email
     maxAdjectivesPerNoun: 1,
-    requiresSpecificDetailEveryNSentences: 3,
+    requiresSpecificDetailEveryNSentences: 2,
     beatStructures: {
       hook: {
-        maxWords: 12,
+        maxWords: 15,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb', 'pronoun'],
-        forbidden: ['hi there', 'hey there', 'dear'],
+        forbidden: ['hi there', 'hey there', 'dear', 'hope this finds'],
       },
-      context: {
-        maxWords: 20,
+      problem: {
+        maxWords: 25,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb', 'pronoun'],
         forbidden: [],
       },
-      claim: {
-        maxWords: 15,
+      solution: {
+        maxWords: 30,
         requiredElements: ['specific_noun', 'number'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
-      proof: {
-        maxWords: 25,
-        requiredElements: ['number', 'proper_noun'],
-        firstWordType: ['noun', 'verb', 'pronoun'],
-        forbidden: [],
-      },
       cta: {
-        maxWords: 8,
+        maxWords: 10,
         requiredElements: ['imperative'],
         firstWordType: ['imperative', 'verb'],
         forbidden: ['click here', 'learn more'],
       },
-      kicker: {
-        maxWords: 10,
-        requiredElements: [],
-        firstWordType: ['noun', 'verb', 'pronoun'],
-        forbidden: [],
-      },
     },
+    requiredBeatSequence: ['hook', 'problem', 'solution', 'cta'], // EXACTLY these 4 beats
     additionalForbidden: [
       'hope this finds you well',
       'reaching out',
       'touching base',
       'circling back',
       'per my last email',
+      'frustrated',
+      'struggling',
+      'overwhelmed',
+      'that\'s where',
+      'stands out',
+      'why does this matter',
+      'curious about',
+      'skeptical',
     ],
     formatRules: [
       'Opening line must be statement or imperative, not greeting',
-      'Every paragraph must contain one specific detail',
+      'Maximum 4 paragraphs total',
+      'One point per email - not a blog post',
       'CTA must be single action under 5 words',
-      'Maximum 3 paragraphs between sender name mentions',
     ],
   },
 
   landing_page: {
     type: 'landing_page',
     description: 'Website landing page or homepage',
-    globalMaxSentenceWords: 20,
+    maxBeats: 6,
+    maxTotalWords: 300,
+    targetWords: 200,
+    globalMaxSentenceWords: 18,
     maxAdjectivesPerNoun: 1,
     requiresSpecificDetailEveryNSentences: 2,
     beatStructures: {
       hook: {
-        maxWords: 10,
+        maxWords: 12,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: ['welcome to', 'introducing'],
       },
-      claim: {
-        maxWords: 15,
-        requiredElements: ['specific_noun'],
-        firstWordType: ['noun', 'verb'],
-        forbidden: [],
-      },
-      proof: {
-        maxWords: 20,
-        requiredElements: ['number', 'proper_noun'],
-        firstWordType: ['noun', 'verb'],
-        forbidden: [],
-      },
-      mechanism: {
+      problem: {
         maxWords: 25,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
-      objection: {
-        maxWords: 20,
-        requiredElements: [],
-        firstWordType: ['noun', 'verb', 'question_word'],
+      solution: {
+        maxWords: 30,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 25,
+        requiredElements: ['number', 'proper_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      mechanism: {
+        maxWords: 30,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       cta: {
-        maxWords: 6,
+        maxWords: 8,
         requiredElements: ['imperative'],
         firstWordType: ['imperative', 'verb'],
         forbidden: ['get started', 'learn more', 'sign up now'],
       },
     },
+    requiredBeatSequence: ['hook', 'problem', 'solution', 'proof', 'cta'],
     additionalForbidden: [
       'helps you',
       'designed for',
@@ -243,41 +262,45 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
   website_copy: {
     type: 'website_copy',
     description: 'General website pages (about, features, etc.)',
-    globalMaxSentenceWords: 22,
+    maxBeats: 6,
+    maxTotalWords: 350,
+    targetWords: 250,
+    globalMaxSentenceWords: 20,
     maxAdjectivesPerNoun: 1,
     requiresSpecificDetailEveryNSentences: 3,
     beatStructures: {
       hook: {
-        maxWords: 12,
+        maxWords: 15,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
-      claim: {
-        maxWords: 18,
-        requiredElements: ['specific_noun'],
-        firstWordType: ['noun', 'verb'],
-        forbidden: [],
-      },
-      proof: {
-        maxWords: 25,
-        requiredElements: ['number'],
-        firstWordType: ['noun', 'verb'],
-        forbidden: [],
-      },
-      mechanism: {
+      problem: {
         maxWords: 30,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
+      solution: {
+        maxWords: 35,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      proof: {
+        maxWords: 30,
+        requiredElements: ['number'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
       cta: {
-        maxWords: 8,
+        maxWords: 10,
         requiredElements: ['imperative'],
         firstWordType: ['imperative', 'verb'],
         forbidden: [],
       },
     },
+    requiredBeatSequence: ['hook', 'problem', 'solution', 'proof', 'cta'],
     additionalForbidden: [],
     formatRules: [
       'F-pattern optimization: front-load every paragraph',
@@ -289,35 +312,39 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
   social_post: {
     type: 'social_post',
     description: 'Social media posts (LinkedIn, X, etc.)',
-    globalMaxSentenceWords: 15,
+    maxBeats: 4,
+    maxTotalWords: 80,
+    targetWords: 50,
+    globalMaxSentenceWords: 12,
     maxAdjectivesPerNoun: 1,
     requiresSpecificDetailEveryNSentences: 2,
     beatStructures: {
       hook: {
-        maxWords: 8,
+        maxWords: 10,
         requiredElements: [],
         firstWordType: ['noun', 'verb', 'question_word'],
         forbidden: ['did you know', 'hot take'],
       },
       claim: {
-        maxWords: 12,
+        maxWords: 15,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb', 'pronoun'],
         forbidden: [],
       },
       proof: {
-        maxWords: 15,
+        maxWords: 20,
         requiredElements: ['number'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       cta: {
-        maxWords: 6,
+        maxWords: 8,
         requiredElements: [],
         firstWordType: ['verb', 'question_word'],
         forbidden: ['link in bio'],
       },
     },
+    requiredBeatSequence: ['hook', 'claim', 'proof', 'cta'],
     additionalForbidden: [
       'thread',
       'unpopular opinion',
@@ -334,41 +361,45 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
   article: {
     type: 'article',
     description: 'Blog posts, essays, long-form content',
-    globalMaxSentenceWords: 25,
+    maxBeats: 8,
+    maxTotalWords: 800,
+    targetWords: 600,
+    globalMaxSentenceWords: 22,
     maxAdjectivesPerNoun: 2,
-    requiresSpecificDetailEveryNSentences: 4,
+    requiresSpecificDetailEveryNSentences: 3,
     beatStructures: {
       hook: {
-        maxWords: 20,
+        maxWords: 25,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb', 'pronoun'],
         forbidden: [],
       },
-      context: {
-        maxWords: 30,
+      nutgraf: {
+        maxWords: 40,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       claim: {
-        maxWords: 20,
+        maxWords: 30,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       proof: {
-        maxWords: 40,
+        maxWords: 50,
         requiredElements: ['number', 'proper_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       kicker: {
-        maxWords: 15,
+        maxWords: 20,
         requiredElements: [],
         firstWordType: ['noun', 'verb', 'pronoun'],
         forbidden: [],
       },
     },
+    requiredBeatSequence: ['hook', 'nutgraf', 'claim', 'proof', 'kicker'],
     additionalForbidden: [],
     formatRules: [
       'Nut graf in first 2 paragraphs',
@@ -380,41 +411,51 @@ export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
   sales_page: {
     type: 'sales_page',
     description: 'Long-form sales letters, VSL scripts',
-    globalMaxSentenceWords: 20,
+    maxBeats: 7,
+    maxTotalWords: 500,
+    targetWords: 400,
+    globalMaxSentenceWords: 18,
     maxAdjectivesPerNoun: 1,
     requiresSpecificDetailEveryNSentences: 2,
     beatStructures: {
       hook: {
-        maxWords: 15,
+        maxWords: 20,
         requiredElements: ['specific_noun'],
         firstWordType: ['noun', 'verb', 'question_word'],
         forbidden: [],
       },
-      claim: {
-        maxWords: 15,
+      problem: {
+        maxWords: 40,
+        requiredElements: ['specific_noun'],
+        firstWordType: ['noun', 'verb'],
+        forbidden: [],
+      },
+      solution: {
+        maxWords: 40,
         requiredElements: ['specific_noun', 'number'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       proof: {
-        maxWords: 30,
+        maxWords: 50,
         requiredElements: ['number', 'proper_noun'],
         firstWordType: ['noun', 'verb'],
         forbidden: [],
       },
       objection: {
-        maxWords: 25,
+        maxWords: 30,
         requiredElements: [],
         firstWordType: ['noun', 'verb', 'question_word'],
         forbidden: [],
       },
       cta: {
-        maxWords: 10,
+        maxWords: 15,
         requiredElements: ['imperative'],
         firstWordType: ['imperative', 'verb'],
         forbidden: [],
       },
     },
+    requiredBeatSequence: ['hook', 'problem', 'solution', 'proof', 'objection', 'cta'],
     additionalForbidden: [],
     formatRules: [
       'Headline stack at top',

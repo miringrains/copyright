@@ -9,6 +9,17 @@ Your job is to deeply understand the target audience and craft a strategic brief
 Output STRICT JSON only. No markdown. No commentary.
 If any required information is missing, populate missing_inputs array and make conservative best-effort assumptions.
 
+CRITICAL - SINGLE JOB RULE:
+This piece of copy has ONE job. Not two. Not three. ONE.
+- "Get them to click" is ONE job
+- "Convince them we're different AND explain how it works AND handle objections" is THREE jobs - WRONG
+- Pick the ONE thing that matters most. Everything else is cut.
+
+The single_job field must be:
+- One sentence, under 15 words
+- A specific action or belief change
+- NOT a list of things ("inform AND convince AND reassure" = WRONG)
+
 Key principles:
 - Reader psychology comes first. What do they fear? What do they secretly want?
 - Find the ONE job this copy must do. Not three. One.
@@ -26,29 +37,33 @@ Key principles:
 - Objection handlers preempt the top 2-3 hesitations
 - Proof points must be specific and verifiable`,
 
-  beat_sheet: `You are a copy strategist creating a paragraph-by-paragraph plan with HARD STRUCTURAL CONSTRAINTS.
+  beat_sheet: `You are a copy strategist creating a MINIMAL paragraph-by-paragraph plan.
 
 Output STRICT JSON only.
 
-MANDATORY STRUCTURE FOR EVERY BEAT:
-1. structure.max_words - Set based on beat function (hook: 12, claim: 15, proof: 25, cta: 8)
-2. structure.required_elements - At least one of: specific_noun, number, proper_noun, imperative, question
-3. structure.first_word_types - What the first word MUST be (noun, verb, imperative, pronoun, question_word)
-4. structure.forbidden_in_beat - Words banned in this specific beat
-5. must_include_from_inputs - Extract SPECIFIC details from TaskSpec (names, numbers, features) that MUST appear
+BEAT LIMITS (NON-NEGOTIABLE):
+- EMAIL: EXACTLY 4 beats. No more. Hook → Problem → Solution → CTA.
+- SOCIAL: EXACTLY 4 beats. Hook → Claim → Proof → CTA.
+- LANDING PAGE: MAXIMUM 5 beats.
+- ARTICLE: MAXIMUM 6 beats.
+- Creating extra beats is FORBIDDEN. Combine beats if necessary.
 
-MANDATORY writing_constraints:
-- max_sentence_words: 18-22 depending on channel
-- max_adjectives_per_noun: 1
-- specific_detail_every_n_sentences: 2-3
-- forbidden_words: Include all AI slop words (potential, journey, solution, leverage, unlock, etc.)
-- forbidden_patterns: Include AI patterns ("you will see", "helps you to", etc.)
+WHY FEWER BEATS:
+Email is not a blog post. Social is not an essay. 
+More beats = reader loses attention = copy fails.
+If you can say it in 4 beats, do NOT use 6.
+
+MANDATORY STRUCTURE FOR EVERY BEAT:
+1. structure.max_words - EMAIL beats: 15-30 words. STRICT.
+2. structure.required_elements - At least one of: specific_noun, number, proper_noun, imperative
+3. structure.first_word_types - noun, verb, imperative only. NO transitions.
+4. must_include_from_inputs - Extract SPECIFIC details from TaskSpec (names, numbers, features)
 
 Key principles:
-- Each beat has ONE job - don't overload beats
-- Beats must cover the entire MessageArchitecture without adding new claims
-- Each beat must include a handoff that makes the next beat feel inevitable
-- must_include_from_inputs is NOT optional - extract real details from inputs`,
+- Fewer beats is ALWAYS better
+- Each beat has ONE job - don't overload
+- If the MessageArchitecture has 5 claims, pick the ONE that matters most for this piece
+- Do NOT try to cover everything - that's what makes copy drone on`,
 
   draft_v0: `You are a senior copywriter executing from a strategic plan with HARD WRITING RULES.
 
@@ -130,23 +145,58 @@ Apply channel-specific formatting:
 
 Do not add new claims. Only restructure for the reading behavior of this channel.`,
 
-  final_package: `You are a senior copy director doing final QA.
+  final_package: `You are a senior copy director doing final QA with ZERO TOLERANCE for AI slop.
 
 Output STRICT JSON only.
 
+BEFORE GENERATING FINAL, CHECK FOR AND REMOVE:
+- "unlock" (BANNED - the classic AI word)
+- "potential", "journey", "experience", "solution" (BANNED - abstract nouns)
+- "frustrated", "struggling", "overwhelmed" (BANNED - fake empathy)
+- "that's where X stands out" (BANNED - formulaic)
+- "why does this matter" (BANNED - rhetorical question pattern)
+- "curious about" (BANNED - weak CTA)
+- em dashes (—) - replace with periods or commas
+- Any sentence over 20 words - split it
+
 Generate:
-1. Final polished copy
-2. Variants: shorter (-30%), punchier (more direct), safer (more conservative claims)
-3. Extras: headlines, subject lines, CTAs as appropriate for channel
+1. Final polished copy - with ALL forbidden words removed
+2. Variants: shorter (-30%), punchier, safer
+3. Extras: headlines, subject lines, CTAs
 4. QA checklist - fix any issues before marking true
 
-If any QA item fails, fix the copy first, then set the QA item to true.`,
+If any forbidden words appear, rewrite those sentences completely. Do not just remove the word.`,
 
   repair: `You are a JSON repair tool. Output ONLY valid JSON that conforms to the schema. No extra keys. No commentary.`,
 }
 
-export function buildCreativeBriefPrompt(taskSpecJson: string): string {
+export function buildCreativeBriefPrompt(
+  taskSpecJson: string,
+  copyTypeConstraints?: { maxBeats: number; maxWords: number; targetWords: number }
+): string {
+  const constraintSection = copyTypeConstraints 
+    ? `\n\nCOPY TYPE CONSTRAINTS (ENFORCE THESE):
+- Maximum ${copyTypeConstraints.maxBeats} beats allowed
+- Target word count: ${copyTypeConstraints.targetWords} words
+- Hard maximum: ${copyTypeConstraints.maxWords} words
+- This means the single_job must be achievable in ${copyTypeConstraints.maxBeats} short paragraphs`
+    : ''
+
   return `Create CreativeBrief from the TaskSpec below.
+
+CRITICAL - SINGLE JOB:
+The single_job must be ONE thing. Not "convince AND explain AND reassure" - that's three jobs.
+Pick the ONE thing that will make them act. Everything else is cut.
+
+Good single_job examples:
+- "Make them believe Windows is holding back their gaming performance"
+- "Get them to check Task Manager to see the change"
+- "Create curiosity about what their specific bottleneck is"
+
+Bad single_job examples:
+- "Explain how it works and why it's different and address concerns" (THREE jobs)
+- "Build trust and drive action" (TWO jobs)
+${constraintSection}
 
 IMPORTANT: Use the actual company name and specific details from the research field.
 
@@ -190,25 +240,31 @@ export function buildBeatSheetPrompt(
 
   return `Create a BeatSheet for the TaskSpec channel, using the MessageArchitecture below.
 
-Structure for this channel:
-- WEBSITE: Hook → Problem → Solution → Proof → Differentiator → CTA
-- EMAIL: Pattern interrupt → Payoff promise → Quick proof → Single CTA  
-- ARTICLE: Nut graf → Background → Analysis → Implications → Takeaway
-- SALES_PAGE: Headline → Problem → Solution → Proof stack → Offer → Guarantee → CTA
+BEAT LIMIT RULES (NON-NEGOTIABLE):
+- EMAIL: EXACTLY 4 beats: hook → problem → solution → cta. NO MORE.
+- SOCIAL: EXACTLY 4 beats: hook → claim → proof → cta. NO MORE.
+- LANDING PAGE: MAXIMUM 5-6 beats
+- ARTICLE: MAXIMUM 8 beats
+- If you create more beats than allowed, the output is INVALID.
+
+WHY FEWER BEATS:
+- More beats = more droning = reader loses interest
+- Email is NOT a blog post. 4 paragraphs maximum.
+- Each beat must EARN its place. If you can combine two beats, do it.
 
 CRITICAL: Each beat MUST include:
-1. structure.max_words - Hard word limit
-2. structure.required_elements - At least one of: specific_noun, number, proper_noun, imperative, question
-3. structure.first_word_types - First word must be: noun, verb, imperative, pronoun, or question_word
+1. structure.max_words - Hard word limit (email beats: 15-30 words each)
+2. structure.required_elements - At least one of: specific_noun, number, proper_noun, imperative
+3. structure.first_word_types - First word must be: noun, verb, imperative, pronoun
 4. structure.forbidden_in_beat - Beat-specific banned words
-5. must_include_from_inputs - Specific details from TaskSpec that MUST appear in this beat
+5. must_include_from_inputs - Specific details from TaskSpec that MUST appear
 
 The writing_constraints field must include:
-- max_sentence_words: No sentence over 20 words
-- max_adjectives_per_noun: Max 1 adjective per noun
-- specific_detail_every_n_sentences: Require specific detail every 3 sentences
-- forbidden_words: Words that cause regeneration (include: potential, journey, experience, solution, leverage, synergy, optimize, enhance, empower, revolutionize, transform, amazing, incredible, awesome, just, simply, really, very, unlock)
-- forbidden_patterns: Patterns that cause regeneration (include: "you will see", "you will experience", "helps you to", "allows you to", "enables you to")
+- max_sentence_words: 15 for email, 18 for landing page, 20 for article
+- max_adjectives_per_noun: 1
+- specific_detail_every_n_sentences: 2
+- forbidden_words: potential, journey, experience, solution, leverage, synergy, optimize, enhance, empower, revolutionize, transform, amazing, incredible, awesome, just, simply, really, very, unlock, frustrated, struggling, that's where, stands out
+- forbidden_patterns: "you will see", "helps you to", "allows you to", "enables you to", "why does this matter"
 ${rulesSection}
 
 TaskSpec:
@@ -339,19 +395,28 @@ export function buildFinalPackagePrompt(
 ): string {
   return `Finalize draft_v3 into FinalPackage.
 
+BEFORE FINALIZING - SCAN FOR AND REMOVE THESE WORDS:
+- unlock, potential, journey, experience, solution, leverage, synergy
+- frustrated, struggling, overwhelmed (fake empathy)
+- "that's where", "stands out", "why does this matter", "curious about"
+- amazing, incredible, awesome, fantastic
+- just, simply, really, very, quite
+- Any em dashes (—) → replace with periods
+
+If you find ANY of these, rewrite that sentence from scratch. Do not just delete the word.
+
 QA Checklist - verify each:
-1. matches_single_job: Does copy focus on ONE main job from creative brief?
-2. no_new_claims: Are all claims from MessageArchitecture (no new ones)?
-3. proof_lane_consistent: Does proof type match the chosen proof_lane?
-4. contains_concrete_detail: At least one specific number, name, or verifiable fact?
-5. contains_constraint_or_tradeoff: Honest about limitations? (builds trust)
-6. stance_present: Does copy take a clear position?
-7. length_ok: Within hard_max?
+1. matches_single_job: Does copy focus on ONE main job?
+2. no_new_claims: Are all claims from MessageArchitecture?
+3. no_forbidden_words: Zero instances of banned words above?
+4. contains_concrete_detail: At least one specific number or name?
+5. length_ok: Within word limit?
+6. no_droning: Is this SHORT and FOCUSED? (Email = 4 paragraphs max)
 
 Generate variants:
 - shorter: -30% length, same impact
 - punchier: more direct, bolder claims
-- safer: more hedged language, conservative claims
+- safer: more hedged language
 
 TaskSpec:
 ${taskSpecJson}
