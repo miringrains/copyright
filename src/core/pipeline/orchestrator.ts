@@ -137,7 +137,7 @@ export class PipelineOrchestrator {
       )
 
       this.state.status = 'completed'
-      this.options.onComplete?.(this.state.finalPackage!)
+      await this.options.onComplete?.(this.state.finalPackage!)
 
       return {
         success: true,
@@ -162,7 +162,7 @@ export class PipelineOrchestrator {
 
       this.state.status = 'failed'
       this.state.errorMessage = errorMessage
-      this.options.onError?.(error as Error)
+      await this.options.onError?.(error as Error)
 
       return {
         success: false,
@@ -180,7 +180,7 @@ export class PipelineOrchestrator {
     const phaseName = PHASE_NAMES[phaseNumber]
     
     this.state.currentPhase = phaseNumber
-    this.options.onPhaseStart?.(phaseNumber, phaseName)
+    await this.options.onPhaseStart?.(phaseNumber, phaseName)
 
     try {
       const result = await executor()
@@ -193,7 +193,7 @@ export class PipelineOrchestrator {
         JSON.parse(JSON.stringify(result)) as Json
       )
 
-      this.options.onPhaseComplete?.(phaseNumber, phaseName, result)
+      await this.options.onPhaseComplete?.(phaseNumber, phaseName, result)
       return result
     } catch (error) {
       const pipelineError = new PipelineError(
@@ -203,7 +203,7 @@ export class PipelineOrchestrator {
         error as Error
       )
 
-      this.options.onPhaseError?.(phaseNumber, phaseName, error as Error)
+      await this.options.onPhaseError?.(phaseNumber, phaseName, error as Error)
       throw pipelineError
     }
   }

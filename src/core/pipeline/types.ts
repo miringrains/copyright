@@ -34,13 +34,13 @@ export interface PhaseResult<T> {
   error?: string
 }
 
-// Pipeline options
+// Pipeline options with optional async callbacks
 export interface PipelineOptions {
-  onPhaseStart?: (phase: number, phaseName: string) => void
-  onPhaseComplete?: (phase: number, phaseName: string, artifact: unknown) => void
-  onPhaseError?: (phase: number, phaseName: string, error: Error) => void
-  onComplete?: (finalPackage: FinalPackage) => void
-  onError?: (error: Error) => void
+  onPhaseStart?: (phase: number, phaseName: string) => void | Promise<void>
+  onPhaseComplete?: (phase: number, phaseName: string, artifact: unknown) => void | Promise<void>
+  onPhaseError?: (phase: number, phaseName: string, error: Error) => void | Promise<void>
+  onComplete?: (finalPackage: FinalPackage) => void | Promise<void>
+  onError?: (error: Error) => void | Promise<void>
 }
 
 // Pipeline result
@@ -59,4 +59,3 @@ export interface PipelineResult {
     channelPass?: ChannelPassReport
   }
 }
-

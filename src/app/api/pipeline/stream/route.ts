@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { TaskSpecSchema } from '@/lib/schemas'
-import { PipelineOrchestrator } from '@/core/pipeline/orchestrator'
-import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
+import { runPipeline } from '@/core/pipeline/orchestrator'
+import type { PipelineOptions } from '@/core/pipeline/types'
 
 // Phase descriptions for streaming messages
 const PHASE_THINKING: Record<number, string[]> = {
@@ -59,6 +59,20 @@ function createSSEMessage(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`
 }
 
+function getArtifactName(phase: number): string {
+  const names: Record<number, string> = {
+    1: 'Creative Brief',
+    2: 'Message Architecture',
+    3: 'Beat Sheet',
+    4: 'Draft V0',
+    5: 'Draft V1 (Cohesion)',
+    6: 'Draft V2 (Rhythm)',
+    7: 'Draft V3 (Channel)',
+    8: 'Final Package',
+  }
+  return names[phase] || `Phase ${phase} Artifact`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -66,69 +80,95 @@ export async function POST(request: NextRequest) {
     
     // Create SSE stream
     const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
-        const send = (data: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(createSSEMessage(data)))
+    
+    // We need to track state across the async callbacks
+    let controller: ReadableStreamDefaultController<Uint8Array> | null = null
+    let currentPhase = 0
+    
+    const send = (data: Record<string, unknown>) => {
+      if (controller) {
+        controller.enqueue(encoder.encode(createSSEMessage(data)))
+      }
+    }
+
+    // Pipeline options with streaming callbacks
+    const pipelineOptions: PipelineOptions = {
+      onPhaseStart: async (phase, phaseName) => {
+        currentPhase = phase
+        send({
+          type: 'phase_start',
+          phase,
+          phaseName,
+          detail: `Starting ${phaseName}...`,
+        })
+
+        // Send thinking messages with delays
+        const thinkingMessages = PHASE_THINKING[phase] || []
+        for (const message of thinkingMessages) {
+          await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300))
+          send({
+            type: 'thinking',
+            phase,
+            message,
+          })
         }
+      },
+      onPhaseComplete: (phase, phaseName, artifact) => {
+        send({
+          type: 'artifact',
+          phase,
+          artifact: getArtifactName(phase),
+          preview: typeof artifact === 'object' && artifact !== null 
+            ? Object.keys(artifact).slice(0, 3).join(', ') + '...'
+            : 'Generated',
+        })
+      },
+      onPhaseError: (phase, phaseName, error) => {
+        send({
+          type: 'error',
+          phase,
+          phaseName,
+          message: error.message,
+        })
+      },
+      onComplete: (finalPackage) => {
+        send({
+          type: 'complete',
+          finalPackage,
+        })
+      },
+      onError: (error) => {
+        send({
+          type: 'error',
+          phase: currentPhase,
+          message: error.message,
+        })
+      },
+    }
 
+    const stream = new ReadableStream({
+      async start(ctrl) {
+        controller = ctrl
+        
         try {
-          const supabase = createServerSupabaseClient()
-          const orchestrator = new PipelineOrchestrator(supabase)
-
-          // Process each phase with streaming updates
-          for (let phase = 1; phase <= 8; phase++) {
-            // Send phase start
-            send({
-              type: 'phase_start',
-              phase,
-              detail: `Starting phase ${phase}...`,
-            })
-
-            // Simulate thinking messages
-            const thinkingMessages = PHASE_THINKING[phase] || []
-            for (const message of thinkingMessages) {
-              await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500))
-              send({
-                type: 'thinking',
-                phase,
-                message,
-              })
-            }
-
-            // Send artifact generation
-            await new Promise(resolve => setTimeout(resolve, 300))
-            send({
-              type: 'artifact',
-              phase,
-              artifact: getArtifactName(phase),
-              preview: 'Processing...',
-            })
-          }
-
-          // Actually run the pipeline
-          const result = await orchestrator.execute(taskSpec)
-
+          // Run the actual pipeline with callbacks
+          const result = await runPipeline(taskSpec, undefined, pipelineOptions)
+          
           if (!result.success) {
             send({
               type: 'error',
-              phase: 8,
+              phase: currentPhase,
               message: result.error || 'Pipeline failed',
-            })
-          } else {
-            send({
-              type: 'complete',
-              finalPackage: result.artifacts?.final_package,
             })
           }
         } catch (error) {
           send({
             type: 'error',
-            phase: 0,
+            phase: currentPhase,
             message: error instanceof Error ? error.message : 'Unknown error',
           })
         } finally {
-          controller.close()
+          controller?.close()
         }
       },
     })
@@ -150,18 +190,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-function getArtifactName(phase: number): string {
-  const names: Record<number, string> = {
-    1: 'Creative Brief',
-    2: 'Message Architecture',
-    3: 'Beat Sheet',
-    4: 'Draft V0',
-    5: 'Draft V1 (Cohesion)',
-    6: 'Draft V2 (Rhythm)',
-    7: 'Draft V3 (Channel)',
-    8: 'Final Package',
-  }
-  return names[phase] || `Phase ${phase} Artifact`
-}
-
