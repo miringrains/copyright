@@ -78,8 +78,8 @@ export type VoiceProfile = z.infer<typeof VoiceProfileSchema>
 // Length budget
 export const LengthBudgetSchema = z.object({
   unit: z.enum(['words', 'chars']),
-  target: z.number().positive(),
-  hard_max: z.number().positive(),
+  target: z.number().int().min(1),
+  hard_max: z.number().int().min(1),
 })
 export type LengthBudget = z.infer<typeof LengthBudgetSchema>
 

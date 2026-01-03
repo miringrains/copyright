@@ -17,8 +17,8 @@ export type BeatFunction = z.infer<typeof BeatFunctionSchema>
 // Target length for a beat
 export const BeatLengthSchema = z.object({
   unit: z.enum(['words', 'chars']),
-  min: z.number().nonnegative(),
-  max: z.number().positive(),
+  min: z.number().int().min(0),
+  max: z.number().int().min(1),
 })
 export type BeatLength = z.infer<typeof BeatLengthSchema>
 
@@ -37,8 +37,8 @@ export type Beat = z.infer<typeof BeatSchema>
 // Total length
 export const TotalLengthSchema = z.object({
   unit: z.enum(['words', 'chars']),
-  target: z.number().positive(),
-  hard_max: z.number().positive(),
+  target: z.number().int().min(1),
+  hard_max: z.number().int().min(1),
 })
 export type TotalLength = z.infer<typeof TotalLengthSchema>
 
