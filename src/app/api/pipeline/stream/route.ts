@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { TaskSpecSchema } from '@/lib/schemas'
 import { PipelineOrchestrator } from '@/core/pipeline/orchestrator'
-import { createSupabaseServerClient } from '@/infrastructure/supabase/client'
+import { createServerSupabaseClient } from '@/infrastructure/supabase/client'
 
 // Phase descriptions for streaming messages
 const PHASE_THINKING: Record<number, string[]> = {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          const supabase = createSupabaseServerClient()
+          const supabase = createServerSupabaseClient()
           const orchestrator = new PipelineOrchestrator(supabase)
 
           // Process each phase with streaming updates
