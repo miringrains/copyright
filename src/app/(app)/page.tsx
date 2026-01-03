@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { SmartBrief } from '@/components/features/input/smart-brief'
+import { SmartInputPanel } from '@/components/features/input/smart-input-panel'
 import { PipelineProgress } from '@/components/features/pipeline/pipeline-progress'
 import { LiveActivity, createActivityLog, type ActivityLog } from '@/components/features/pipeline/live-activity'
 import { OutputPanel } from '@/components/features/output/output-panel'
-import { Sparkles } from 'lucide-react'
 import type { TaskSpec, FinalPackage } from '@/lib/schemas'
 
 type PipelineStatus = 'idle' | 'running' | 'completed' | 'failed'
@@ -151,76 +150,48 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg grid-pattern">
-      <div className="mx-auto max-w-4xl px-6 py-12 space-y-10">
-        {/* Hero */}
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4">
-            <Sparkles className="h-4 w-4" />
-            AI Copywriting That Actually Works
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-            From research to{' '}
-            <span className="text-gradient">revenue-driving</span>{' '}
-            copy
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            The only AI copywriter that thinks before it writes. 8 strategic phases. 
-            Zero AI slop. Copy that converts.
-          </p>
-        </div>
-
-        {/* Main Interface */}
-        {status === 'idle' && (
-          <SmartBrief onGenerate={handleGenerate} isGenerating={false} />
-        )}
-
-        {/* Progress & Activity */}
-        {status !== 'idle' && (
-          <div className="space-y-4">
-            {/* Pipeline Progress */}
-            <PipelineProgress currentPhase={currentPhase} status={status} />
-            
-            {/* Live Activity */}
-            <LiveActivity 
-              logs={activityLogs} 
-              isActive={status === 'running'} 
-              currentProcess={currentProcess}
-            />
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
-
-        {/* Output Panel */}
-        <OutputPanel 
-          finalPackage={finalPackage} 
-          isLoading={status === 'running'} 
-        />
-
-        {/* Reset button when complete */}
-        {status === 'completed' && (
-          <div className="text-center">
-            <button
-              onClick={() => {
-                setStatus('idle')
-                setCurrentPhase(0)
-                setFinalPackage(null)
-                setError(null)
-                setActivityLogs([])
-              }}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              ← Start a new project
-            </button>
-          </div>
-        )}
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* Hero */}
+      <div className="text-center">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          Turn research into{' '}
+          <span className="text-primary">human-quality</span> copy
+        </h1>
+        <p className="mt-3 text-lg text-muted-foreground">
+          AI copywriting that thinks like a senior writer. No slop. No fluff.
+        </p>
       </div>
+
+      {/* Input Panel */}
+      <SmartInputPanel onGenerate={handleGenerate} isGenerating={status === 'running'} />
+
+      {/* Progress & Activity */}
+      {status !== 'idle' && (
+        <div className="space-y-4">
+          {/* Pipeline Progress */}
+          <PipelineProgress currentPhase={currentPhase} status={status} />
+          
+          {/* Live Activity */}
+          <LiveActivity 
+            logs={activityLogs} 
+            isActive={status === 'running'} 
+            currentProcess={currentProcess}
+          />
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Output Panel */}
+      <OutputPanel 
+        finalPackage={finalPackage} 
+        isLoading={status === 'running'} 
+      />
     </div>
   )
 }
