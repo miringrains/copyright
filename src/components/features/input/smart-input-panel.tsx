@@ -566,10 +566,15 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={!isFormValid() || isGenerating}
+              disabled={!isFormValid() || isGenerating || isResearching}
               className="w-full h-12 text-lg gap-2"
             >
-              {isGenerating ? (
+              {isResearching ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Researching...
+                </>
+              ) : isGenerating ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Generating...
