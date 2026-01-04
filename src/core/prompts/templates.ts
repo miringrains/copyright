@@ -154,6 +154,20 @@ ZERO FABRICATION:
 - Don't say "$2000/month" or "24,000 annual loss" unless it's in the inputs
 
 ═══════════════════════════════════════════════════════════════════════════════
+NO INVENTED NARRATIVES:
+═══════════════════════════════════════════════════════════════════════════════
+- NEVER start with "Last night I noticed..." or "Yesterday I realized..."
+- NEVER invent a personal story about discovering the problem
+- The COMPANY is speaking to the CUSTOMER, not a reviewer sharing their experience
+- If using first person, it's the company speaking ("We built this for...")
+- NOT an individual sharing their journey with the product
+
+BAD: "Last night, as I was setting up my gaming rig, I noticed something..."
+BAD: "I tried this product and realized..."
+GOOD: "Your trial is active. Here's what happens next."
+GOOD: "We built Hypertune because Windows prioritizes tasks over games."
+
+═══════════════════════════════════════════════════════════════════════════════
 STILL BANNED:
 ═══════════════════════════════════════════════════════════════════════════════
 - Abstract jargon: positioning, strategic areas, diagnostic framework

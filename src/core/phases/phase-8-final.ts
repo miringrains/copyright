@@ -8,8 +8,31 @@ import {
 } from '@/lib/schemas'
 import { SYSTEM_PROMPTS, buildFinalPackagePrompt } from '@/core/prompts/templates'
 import { validateDraft, formatViolationsForPrompt } from '@/core/validation/draft-validator'
+import { postProcess } from '@/core/post-processor'
 
 const MAX_REGENERATION_ATTEMPTS = 2
+
+/**
+ * Apply post-processing to all text fields in the final package
+ * This removes em dashes, excessive exclamation, and other AI artifacts
+ */
+function postProcessPackage(pkg: FinalPackage): FinalPackage {
+  return {
+    ...pkg,
+    final: postProcess(pkg.final),
+    variants: {
+      direct: postProcess(pkg.variants.direct),
+      story_led: postProcess(pkg.variants.story_led),
+      conversational: postProcess(pkg.variants.conversational),
+    },
+    extras: {
+      ...pkg.extras,
+      headlines: pkg.extras.headlines?.map(h => postProcess(h)),
+      email_subject_lines: pkg.extras.email_subject_lines?.map(s => postProcess(s)),
+      cta_options: pkg.extras.cta_options?.map(c => postProcess(c)),
+    },
+  }
+}
 
 export async function generateFinalPackage(
   taskSpec: TaskSpec,
@@ -46,7 +69,8 @@ export async function generateFinalPackage(
     
     if (validation.isValid) {
       console.log(`Final package passed validation on attempt ${attempt}`)
-      return result
+      // Apply post-processing before returning
+      return postProcessPackage(result)
     }
     
     // Final package has violations - prepare for regeneration
@@ -58,8 +82,8 @@ export async function generateFinalPackage(
     }
   }
   
-  // Return last result even if not perfect
+  // Return last result even if not perfect, but still post-process
   console.warn('Final package has violations but returning best effort')
-  return lastResult!
+  return postProcessPackage(lastResult!)
 }
 
