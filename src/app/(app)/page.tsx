@@ -168,15 +168,29 @@ export default function HomePage() {
       let websiteContent: string | null = null
       if (formData.website_url.startsWith('http')) {
         setPhaseMessage(`Scanning ${formData.website_url}...`)
-        const scrapeResponse = await fetch('/api/scrape', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: formData.website_url }),
-        })
-        
-        if (scrapeResponse.ok) {
-          const scrapeData = await scrapeResponse.json()
-          websiteContent = scrapeData.content || null
+        try {
+          const scrapeResponse = await fetch('/api/scrape', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: formData.website_url }),
+          })
+          
+          if (scrapeResponse.ok) {
+            const scrapeData = await scrapeResponse.json()
+            websiteContent = scrapeData.content || null
+            if (!websiteContent) {
+              console.warn('Scrape returned empty content')
+            } else {
+              console.log('Scraped', websiteContent.length, 'chars')
+            }
+          } else {
+            const errorData = await scrapeResponse.json().catch(() => ({}))
+            console.error('Scrape failed:', scrapeResponse.status, errorData)
+            setPhaseMessage(`Scrape failed: ${errorData.error || scrapeResponse.status}`)
+          }
+        } catch (scrapeError) {
+          console.error('Scrape error:', scrapeError)
+          setPhaseMessage('Website scrape failed - continuing without it')
         }
       }
 

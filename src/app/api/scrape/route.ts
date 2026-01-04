@@ -3,6 +3,15 @@ import { scrapeUrl } from '@/infrastructure/firecrawl/client'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Firecrawl API key is configured
+    if (!process.env.FIRECRAWL_API_KEY) {
+      console.error('[Scrape API] FIRECRAWL_API_KEY not configured')
+      return NextResponse.json(
+        { success: false, error: 'Firecrawl API key not configured. Add FIRECRAWL_API_KEY to environment variables.' },
+        { status: 500 }
+      )
+    }
+    
     const body = await request.json()
     console.log('[Scrape API] Request body:', JSON.stringify(body))
     
