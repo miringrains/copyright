@@ -171,7 +171,7 @@ export default function HomePage() {
         const scrapeResponse = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: [formData.website_url] }),
+          body: JSON.stringify({ url: formData.website_url }),
         })
         
         if (scrapeResponse.ok) {

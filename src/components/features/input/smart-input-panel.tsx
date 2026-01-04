@@ -144,7 +144,7 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
         const scrapeResponse = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: [companyUrl] }),
+          body: JSON.stringify({ url: companyUrl }),
         })
         
         if (scrapeResponse.ok) {
