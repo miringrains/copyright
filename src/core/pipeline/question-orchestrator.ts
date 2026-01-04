@@ -6,23 +6,26 @@
  * 2. ANALYZE - Identify gaps, generate questions
  * 3. WAIT - Display questions, wait for user answers
  * 4. WRITE - Generate copy using answers
- * 5. VALIDATE - Check for slop, regenerate if needed
+ * 5. CRITIC - AI evaluates against rubrics
+ * 6. VALIDATE - Check for slop patterns
+ * 7. COMPLETE - Output ready
  */
 
-import { generateObject, generateText } from 'ai'
+import { generateObject } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { ScanResultSchema, FinalInputPacketSchema, type ScanResult, type QuestionForUser, type FinalInputPacket } from '@/lib/schemas/scan-result'
+import { ScanResultSchema, type ScanResult, type QuestionForUser, type FinalInputPacket } from '@/lib/schemas/scan-result'
 import { getEmailRequirements } from '@/core/email-requirements'
 import { generateQuestions } from '@/core/question-generator'
-import { validateCopy, type ValidationResult } from '@/core/copy-validator'
+import { validateCopy } from '@/core/copy-validator'
+import { shouldRegenerateCopy } from '@/core/critic'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type PipelinePhase = 'scan' | 'analyze' | 'questions' | 'write' | 'validate' | 'complete' | 'error'
+export type PipelinePhase = 'scan' | 'analyze' | 'questions' | 'write' | 'critic' | 'validate' | 'complete' | 'error'
 
 export interface PipelineState {
   phase: PipelinePhase
@@ -101,12 +104,12 @@ Extract all specific facts. Note what's missing.`,
 // PHASE 4: WRITE COPY
 // ============================================================================
 
-function buildWritePrompt(packet: FinalInputPacket): string {
+function buildWritePrompt(packet: FinalInputPacket, criticFeedback?: string): string {
   const userAnswers = Object.entries(packet.user_provided)
     .map(([id, answer]) => `${id}: ${answer}`)
     .join('\n')
 
-  return `Write a ${packet.email_type} email for ${packet.company_name}.
+  let prompt = `Write a ${packet.email_type} email for ${packet.company_name}.
 
 COMPANY: ${packet.company_name}
 WHAT THEY DO: ${packet.what_they_do}
@@ -115,7 +118,7 @@ SENDER: ${packet.sender_name}
 TONE: ${packet.tone}
 
 SPECIFIC FACTS FROM WEBSITE:
-${packet.facts.map(f => `- ${f}`).join('\n')}
+${packet.facts.length > 0 ? packet.facts.map(f => `- ${f}`).join('\n') : '- No specific facts available'}
 
 USER PROVIDED (this is the CORE CONTENT - use these directly):
 ${userAnswers}
@@ -131,6 +134,15 @@ ${packet.antiPatterns.map(p => `- "${p}"`).join('\n')}
 
 Write the email. The user's answers should BE the content, not just inform it.
 Short paragraphs. No fluff. Every sentence earns its place.`
+
+  if (criticFeedback) {
+    prompt += `
+
+IMPORTANT - FIX THESE ISSUES FROM PREVIOUS ATTEMPT:
+${criticFeedback}`
+  }
+
+  return prompt
 }
 
 const CopyOutputSchema = z.object({
@@ -140,7 +152,7 @@ const CopyOutputSchema = z.object({
   subjectLines: z.array(z.string()).describe('3 subject line options'),
 })
 
-export async function writeCopy(packet: FinalInputPacket): Promise<CopyOutput> {
+export async function writeCopy(packet: FinalInputPacket, criticFeedback?: string): Promise<CopyOutput> {
   const result = await generateObject({
     model: openai('gpt-4o'),
     schema: CopyOutputSchema,
@@ -151,46 +163,89 @@ RULES:
 - Don't add enthusiasm or excitement
 - Every sentence must do something
 - If something isn't in the inputs, don't mention it
-- Match the observed tone from their website`,
-    prompt: buildWritePrompt(packet),
+- Match the observed tone from their website
+- NO fabricated claims or invented stories
+- NO AI clichés (thrilled, dive into, journey, etc.)`,
+    prompt: buildWritePrompt(packet, criticFeedback),
   })
 
   return result.object
 }
 
 // ============================================================================
-// PHASE 5: VALIDATE
+// PHASE 5: CRITIC
 // ============================================================================
 
-const MAX_REGENERATION_ATTEMPTS = 2
+const MAX_CRITIC_REGENERATIONS = 2
 
-export async function validateAndRegenerate(
+async function runCriticLoop(
   copy: CopyOutput,
-  packet: FinalInputPacket
-): Promise<{ copy: CopyOutput; attempts: number }> {
+  packet: FinalInputPacket,
+  onFeedback?: (message: string) => void
+): Promise<{ copy: CopyOutput; criticPassed: boolean; attempts: number }> {
   let currentCopy = copy
   let attempts = 1
 
-  for (let i = 0; i < MAX_REGENERATION_ATTEMPTS; i++) {
+  for (let i = 0; i < MAX_CRITIC_REGENERATIONS; i++) {
+    // Run critic evaluation
+    const criticResult = await shouldRegenerateCopy(
+      currentCopy.main,
+      packet.email_type,
+      {
+        companyName: packet.company_name,
+        targetAudience: packet.target_audience,
+        userProvidedAnswers: packet.user_provided,
+      }
+    )
+
+    if (!criticResult.shouldRegenerate) {
+      // Passed critic review
+      return { copy: currentCopy, criticPassed: true, attempts }
+    }
+
+    // Failed - need to regenerate
+    attempts++
+    onFeedback?.(`Critic found issues, regenerating (attempt ${attempts})...`)
+
+    // Regenerate with critic feedback
+    currentCopy = await writeCopy(packet, criticResult.instructions)
+  }
+
+  // Max attempts reached - return what we have
+  return { copy: currentCopy, criticPassed: false, attempts }
+}
+
+// ============================================================================
+// PHASE 6: VALIDATE (SLOP CHECK)
+// ============================================================================
+
+async function runSlopValidation(
+  copy: CopyOutput,
+  packet: FinalInputPacket
+): Promise<{ copy: CopyOutput; slopFixed: boolean; attempts: number }> {
+  let currentCopy = copy
+  let attempts = 1
+
+  for (let i = 0; i < 2; i++) {
     const validation = validateCopy(currentCopy.main, packet.email_type)
     
     if (validation.isValid) {
-      return { copy: currentCopy, attempts }
+      return { copy: currentCopy, slopFixed: attempts > 1, attempts }
     }
 
-    // Regenerate with violation context
+    // Fix slop issues
     attempts++
     const violations = validation.violations.slice(0, 5).map(v => v.details).join('\n')
     
     const result = await generateObject({
       model: openai('gpt-4o'),
       schema: CopyOutputSchema,
-      system: `You are fixing an email that has problems. Remove the violations while keeping the message.
+      system: `You are fixing an email that has quality issues. Remove the violations while keeping the message.
 
 VIOLATIONS FOUND:
 ${violations}
 
-Fix these specific issues. Keep everything else the same.`,
+Fix these specific issues. Keep everything else the same. Do NOT add new AI-sounding phrases.`,
       prompt: `ORIGINAL EMAIL:
 ${currentCopy.main}
 
@@ -200,33 +255,32 @@ ${currentCopy.shorter}
 WARMER VERSION:
 ${currentCopy.warmer}
 
-Fix the violations in all versions. Keep the subject lines if they're fine.`,
+SUBJECT LINES:
+${currentCopy.subjectLines.join('\n')}
+
+Fix the violations in all versions. Keep the core message.`,
     })
 
     currentCopy = result.object
   }
 
-  return { copy: currentCopy, attempts }
+  return { copy: currentCopy, slopFixed: true, attempts }
 }
 
 // ============================================================================
-// ORCHESTRATOR
+// ORCHESTRATOR CLASS
 // ============================================================================
 
 export class QuestionDrivenPipeline {
   private callbacks: PipelineCallbacks
   private scanResult: ScanResult | null = null
   private questions: QuestionForUser[] = []
-  private answers: Record<string, string> = {}
   private input: PipelineInput | null = null
 
   constructor(callbacks: PipelineCallbacks) {
     this.callbacks = callbacks
   }
 
-  /**
-   * Start the pipeline - scans website and generates questions
-   */
   async start(input: PipelineInput): Promise<void> {
     this.input = input
 
@@ -246,7 +300,6 @@ export class QuestionDrivenPipeline {
           data: this.scanResult,
         })
       } else {
-        // No website content - use minimal scan result
         this.scanResult = {
           company: {
             name: input.formData.company_name || 'Company',
@@ -263,7 +316,7 @@ export class QuestionDrivenPipeline {
       // Phase 2: Analyze and generate questions
       this.callbacks.onPhaseChange({
         phase: 'analyze',
-        message: 'Determining what questions to ask...',
+        message: 'Analyzing what questions to ask...',
       })
 
       this.questions = await generateQuestions(
@@ -272,10 +325,10 @@ export class QuestionDrivenPipeline {
         input.formData
       )
 
-      // Phase 3: Questions ready - wait for answers
+      // Phase 3: Questions ready
       this.callbacks.onPhaseChange({
         phase: 'questions',
-        message: `${this.questions.length} questions to answer`,
+        message: `${this.questions.length} questions ready`,
         data: this.questions,
       })
 
@@ -288,20 +341,16 @@ export class QuestionDrivenPipeline {
     }
   }
 
-  /**
-   * Continue pipeline after user answers questions
-   */
   async continueWithAnswers(answers: Record<string, string>): Promise<void> {
     if (!this.input || !this.scanResult) {
       this.callbacks.onError('Pipeline not started')
       return
     }
 
-    this.answers = answers
     const requirements = getEmailRequirements(this.input.emailType)
 
     try {
-      // Build the final input packet
+      // Build packet
       const packet: FinalInputPacket = {
         company_name: this.scanResult.company.name,
         what_they_do: this.scanResult.company.what_they_do,
@@ -323,33 +372,38 @@ export class QuestionDrivenPipeline {
       // Phase 4: Write
       this.callbacks.onPhaseChange({
         phase: 'write',
-        message: 'Writing copy...',
+        message: 'Writing first draft...',
       })
 
-      const copy = await writeCopy(packet)
+      let copy = await writeCopy(packet)
 
-      // Phase 5: Validate
+      // Phase 5: Critic
+      this.callbacks.onPhaseChange({
+        phase: 'critic',
+        message: 'Evaluating quality...',
+      })
+
+      const criticResult = await runCriticLoop(copy, packet, (msg) => {
+        this.callbacks.onPhaseChange({ phase: 'critic', message: msg })
+      })
+      copy = criticResult.copy
+
+      // Phase 6: Slop Validation
       this.callbacks.onPhaseChange({
         phase: 'validate',
-        message: 'Checking quality...',
+        message: 'Final quality check...',
       })
 
-      const { copy: validatedCopy, attempts } = await validateAndRegenerate(copy, packet)
-
-      if (attempts > 1) {
-        this.callbacks.onPhaseChange({
-          phase: 'validate',
-          message: `Fixed issues (${attempts} attempts)`,
-        })
-      }
+      const validationResult = await runSlopValidation(copy, packet)
+      copy = validationResult.copy
 
       // Complete
       this.callbacks.onPhaseChange({
         phase: 'complete',
-        message: 'Done',
+        message: 'Copy ready!',
       })
 
-      this.callbacks.onCopyReady(validatedCopy)
+      this.callbacks.onCopyReady(copy)
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Writing failed'
@@ -359,3 +413,49 @@ export class QuestionDrivenPipeline {
   }
 }
 
+// ============================================================================
+// FUNCTIONAL API (for route.ts)
+// ============================================================================
+
+export async function runWritePhase(
+  scanResult: ScanResult,
+  emailType: string,
+  formData: Record<string, string>,
+  answers: Record<string, string>
+): Promise<{ copy: CopyOutput; totalAttempts: number }> {
+  const requirements = getEmailRequirements(emailType)
+
+  const packet: FinalInputPacket = {
+    company_name: scanResult.company.name,
+    what_they_do: scanResult.company.what_they_do,
+    tone: scanResult.company.tone_observed,
+    facts: scanResult.facts.map(f => f.content),
+    email_type: emailType,
+    target_audience: formData.target_audience || 'General audience',
+    sender_name: formData.sender_persona || scanResult.company.name,
+    user_provided: answers,
+    structure: requirements?.structure || {
+      maxParagraphs: 4,
+      hook: 'Get attention',
+      body: 'Deliver value',
+      close: 'Clear next step',
+    },
+    antiPatterns: requirements?.antiPatterns || [],
+  }
+
+  // Write
+  let copy = await writeCopy(packet)
+
+  // Critic loop
+  const criticResult = await runCriticLoop(copy, packet)
+  copy = criticResult.copy
+
+  // Slop validation
+  const validationResult = await runSlopValidation(copy, packet)
+  copy = validationResult.copy
+
+  return {
+    copy,
+    totalAttempts: criticResult.attempts + validationResult.attempts,
+  }
+}

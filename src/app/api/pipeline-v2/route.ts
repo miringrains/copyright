@@ -3,14 +3,13 @@
  * 
  * Two endpoints:
  * 1. POST /api/pipeline-v2 (action: "start") - Scan website, return questions
- * 2. POST /api/pipeline-v2 (action: "write") - Write copy with answers
+ * 2. POST /api/pipeline-v2 (action: "write") - Write copy with answers (includes Critic phase)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { scanWebsite, writeCopy, validateAndRegenerate } from '@/core/pipeline/question-orchestrator'
+import { scanWebsite, runWritePhase } from '@/core/pipeline/question-orchestrator'
 import { generateQuestions } from '@/core/question-generator'
-import { getEmailRequirements } from '@/core/email-requirements'
-import type { ScanResult, FinalInputPacket, QuestionForUser } from '@/lib/schemas/scan-result'
+import type { ScanResult, QuestionForUser } from '@/lib/schemas/scan-result'
 
 // ============================================================================
 // TYPES
@@ -107,41 +106,22 @@ export async function POST(req: NextRequest): Promise<NextResponse<PipelineRespo
     }
 
     // ========================================================================
-    // ACTION: WRITE - Generate copy with answers
+    // ACTION: WRITE - Generate copy with answers (includes Critic + Validation)
     // ========================================================================
     if (body.action === 'write') {
-      const requirements = getEmailRequirements(body.emailType)
-
-      // Build the final input packet
-      const packet: FinalInputPacket = {
-        company_name: body.scanResult.company.name,
-        what_they_do: body.scanResult.company.what_they_do,
-        tone: body.scanResult.company.tone_observed,
-        facts: body.scanResult.facts.map(f => f.content),
-        email_type: body.emailType,
-        target_audience: body.formData.target_audience || 'General audience',
-        sender_name: body.formData.sender_persona || body.scanResult.company.name,
-        user_provided: body.answers,
-        structure: requirements?.structure || {
-          maxParagraphs: 4,
-          hook: 'Get attention',
-          body: 'Deliver value',
-          close: 'Clear next step',
-        },
-        antiPatterns: requirements?.antiPatterns || [],
-      }
-
-      // Write the copy
-      const copy = await writeCopy(packet)
-
-      // Validate and regenerate if needed
-      const { copy: validatedCopy, attempts } = await validateAndRegenerate(copy, packet)
+      // Run the full write phase: Write → Critic → Validate
+      const { copy, totalAttempts } = await runWritePhase(
+        body.scanResult,
+        body.emailType,
+        body.formData,
+        body.answers
+      )
 
       return NextResponse.json({
         success: true,
         phase: 'complete',
-        copy: validatedCopy,
-        attempts,
+        copy,
+        attempts: totalAttempts,
       })
     }
 
