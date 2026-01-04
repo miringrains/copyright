@@ -140,6 +140,12 @@ export const UNIVERSAL_FORBIDDEN_PATTERNS = [
   /see it for yourself/i, // Presumptuous
   /proof that/i, // Usually followed by unproven claim
   
+  // "It's not X, it's Y" cliches
+  /isn'?t (broken|wrong|bad|the problem),?\s*(it'?s|your)/i, // "Your X isn't broken, it's Y"
+  /the problem isn'?t/i, // "The problem isn't X..."
+  /it'?s not (about|that|what)/i, // "It's not about X, it's about Y"
+  /stop (doing|thinking|worrying)/i, // "Stop doing X, start doing Y"
+  
   // Em dashes now allowed for rhythm - checked for overuse separately
 ]
 

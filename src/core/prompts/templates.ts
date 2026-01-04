@@ -12,15 +12,18 @@ THE THROUGH-LINE:
 Before anything else, identify the ONE insight.
 This is the sentence someone would use to describe the email to a friend.
 
-Good through-lines:
-- "Tactics without strategy is wasted money"
-- "Your website isn't broken, your targeting is"
-- "Speed matters more than features"
+Good through-lines (specific, memorable, takes a position):
+- "Most ads fail because they're talking to people who were never going to buy"
+- "The equipment you need is live right now"
+- "You're paying for features you'll never use"
+- "Three months from now, you'll wish you started today"
 
 Bad through-lines:
-- "We help with marketing" (too vague)
+- "We help with marketing" (too vague, says nothing)
+- "Your website isn't broken, your targeting is" (AI cliche: "It's not X, it's Y")
 - "Improve your website and targeting and messaging" (too many things)
-- "Consider your strategic options" (meaningless)
+- "Consider your strategic options" (meaningless corporate speak)
+- "Unlock your potential" (hollow motivational garbage)
 
 The single_job field must be:
 - One sentence, under 12 words
@@ -574,46 +577,61 @@ export function buildFinalPackagePrompt(
 ): string {
   return `Finalize draft_v3 into FinalPackage with THREE STYLE VARIANTS.
 
-BEFORE FINALIZING - SCAN FOR AND REMOVE THESE WORDS:
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL - THE "final" FIELD:
+═══════════════════════════════════════════════════════════════════════════════
+The "final" field must be PLAIN TEXT ready to send, not JSON or structured data.
+
+WRONG: {"hook":"You signed up...","context":"Current auctions..."}
+RIGHT: "You signed up for Holland Industrial. Current auctions are live..."
+
+Just the copy, formatted with line breaks between paragraphs. No structure, no JSON.
+
+═══════════════════════════════════════════════════════════════════════════════
+BANNED WORDS - REWRITE ANY SENTENCE CONTAINING THESE:
+═══════════════════════════════════════════════════════════════════════════════
 - unlock, potential, journey, experience, solution, leverage, synergy
 - frustrated, struggling, overwhelmed (fake empathy)
 - "that's where", "stands out", "why does this matter", "curious about"
 - amazing, incredible, awesome, fantastic
-- just, simply, really, very, quite
-
-If you find ANY of these, rewrite that sentence from scratch. Do not just delete the word.
+- just, simply, really, very, quite, easily
+- "Get started now!" (generic CTA)
 
 ═══════════════════════════════════════════════════════════════════════════════
-GENERATE THREE STYLE VARIANTS:
+THREE STYLE VARIANTS - ALL FROM COMPANY PERSPECTIVE:
 ═══════════════════════════════════════════════════════════════════════════════
 
 DIRECT STYLE (variants.direct):
 - Shorter sentences, no qualifiers
 - Lead every paragraph with the point
 - Confident, brief, no wasted words
+- COMPANY speaking to customer
 
 STORY-LED STYLE (variants.story_led):  
-- Scene-setting hook with sensory detail
-- Observations ("I noticed...") instead of claims
-- Build anticipation, delay the reveal
-- End with implication, not command
+- Grounded narrative from company perspective
+- "We built this because..." not "Last night I noticed..."
+- NEVER fabricate timelines: "Last Tuesday", "Yesterday", "Last week"
+- NEVER invent personal experiences with the product
+- Show the WHY behind the product, not a fake user journey
+- COMPANY sharing their story, not an individual reviewer
 
 CONVERSATIONAL STYLE (variants.conversational):
 - Contractions throughout
-- Questions as transitions
+- Casual but professional
 - "You" focused, second person
-- Short paragraphs, friendly asides
-- CTA feels like a favor
+- Short paragraphs, friendly
+- COMPANY speaking warmly to customer
 
-Each variant is a COMPLETE rewrite with the style applied, not word swaps.
+CRITICAL: All three variants are the COMPANY speaking. No fabricated timelines, 
+no invented personal experiences, no "I noticed..." narratives.
 
-QA Checklist - verify each:
-1. matches_single_job: Does copy focus on ONE main job?
-2. no_new_claims: Are all claims from MessageArchitecture?
-3. no_forbidden_words: Zero instances of banned words?
-4. contains_concrete_detail: At least one specific number or name?
-5. length_ok: Within word limit?
-6. no_droning: SHORT and FOCUSED? (Email = 4 paragraphs max)
+═══════════════════════════════════════════════════════════════════════════════
+QA CHECKLIST:
+═══════════════════════════════════════════════════════════════════════════════
+1. matches_single_job: ONE main job?
+2. no_new_claims: All claims from MessageArchitecture?
+3. length_ok: Within word limit? (Email = 4 paragraphs max)
+4. no_fabrication: Zero invented timelines or personal stories?
 
 TaskSpec:
 ${taskSpecJson}
@@ -621,7 +639,7 @@ ${taskSpecJson}
 MessageArchitecture:
 ${messageArchJson}
 
-DraftV3:
+DraftV3 (use this as base, output as plain text):
 ${draftV3}`
 }
 
