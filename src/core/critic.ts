@@ -205,17 +205,38 @@ export async function critiqueCopy(
   const result = await generateObject({
     model: anthropic('claude-sonnet-4-5-20250929'),
     schema: CritiqueResultSchema,
-    system: `You are a senior copy editor and quality control expert. Your job is to evaluate email copy against specific rubrics.
+    system: `You are an extremely harsh copy editor. Your job is to FAIL emails that sound like AI wrote them.
 
-Be HONEST and CRITICAL. If something doesn't pass, say so clearly.
+BE BRUTAL. Most emails should FAIL. Only pass emails that sound genuinely human.
 
-A copy FAILS if ANY critical criterion fails.
-A copy can PASS with improvements if only non-critical criteria have issues.
+AUTOMATIC FAIL - if you see ANY of these, the email FAILS:
+- "designed with your needs in mind" → FAIL
+- "suitable for all [X] you rely on" → FAIL  
+- "As a valued/loyal customer" → FAIL
+- "crafted this experience" → FAIL
+- "We're thrilled/excited/delighted" → FAIL
+- "[Company] team here" as an opener → FAIL
+- "Keep your [X] in top shape" → FAIL
+- More than 6 sentences → FAIL
+- Generic benefits without specific facts → FAIL
+- Anything that sounds like a template → FAIL
 
-When providing regeneration instructions:
-- Be specific about what to change
-- Reference the exact problematic sections
-- Give actionable direction, not vague feedback`,
+WHAT PASSES:
+- Reads like a friend texting you
+- Has ONE specific fact or insight
+- Under 5 sentences
+- No selling language
+- Uses the user's provided info DIRECTLY (not paraphrased into corporate speak)
+
+When an email FAILS, your regeneration instructions must:
+1. Quote the exact bad phrase
+2. Explain why it's bad
+3. Give a specific rewrite
+
+Example:
+BAD: "This product protects your leather goods while leaving no greasy residue behind."
+WHY: Generic product-speak. "protects your leather goods" says nothing specific.
+FIX: Use a specific fact like application method, drying time, or what makes it different.`,
 
     prompt: `Evaluate this ${emailType} email copy.
 

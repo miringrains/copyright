@@ -106,34 +106,33 @@ Extract all specific facts. Note what's missing.`,
 
 function buildWritePrompt(packet: FinalInputPacket, criticFeedback?: string): string {
   const userAnswers = Object.entries(packet.user_provided)
-    .map(([id, answer]) => `${id}: ${answer}`)
+    .map(([id, answer]) => `"${answer}"`)
     .join('\n')
 
-  let prompt = `Write a ${packet.email_type} email for ${packet.company_name}.
+  let prompt = `Write a ${packet.email_type} email.
 
 COMPANY: ${packet.company_name}
-WHAT THEY DO: ${packet.what_they_do}
-AUDIENCE: ${packet.target_audience}
 SENDER: ${packet.sender_name}
-TONE: ${packet.tone}
 
-SPECIFIC FACTS FROM WEBSITE:
-${packet.facts.length > 0 ? packet.facts.map(f => `- ${f}`).join('\n') : '- No specific facts available'}
-
-USER PROVIDED (this is the CORE CONTENT - use these directly):
+THE USER GAVE YOU THIS CONTENT (use it DIRECTLY, don't paraphrase):
 ${userAnswers}
 
-STRUCTURE:
-- Max ${packet.structure.maxParagraphs} paragraphs
-- Hook: ${packet.structure.hook}
-- Body: ${packet.structure.body}
-- Close: ${packet.structure.close}
+${packet.facts.length > 0 ? `FACTS FROM WEBSITE:\n${packet.facts.slice(0, 3).map(f => `- ${f}`).join('\n')}` : ''}
 
-ABSOLUTELY DO NOT USE:
-${packet.antiPatterns.map(p => `- "${p}"`).join('\n')}
+CONSTRAINTS:
+- MAX 5 sentences total
+- First sentence: confirm/acknowledge (no enthusiasm)
+- Middle: the ONE thing you want them to know (use user's content)
+- Last sentence: clear action or sign-off
+- Sign with just: ${packet.sender_name}
 
-Write the email. The user's answers should BE the content, not just inform it.
-Short paragraphs. No fluff. Every sentence earns its place.`
+DO NOT:
+- Start with "[Company] team here"
+- Say "designed with your needs in mind"
+- Say "suitable for all [X] you rely on"
+- Say "as a valued/loyal customer"
+- Use more than 5 sentences
+- Add benefits the user didn't provide`
 
   if (criticFeedback) {
     prompt += `
@@ -156,16 +155,49 @@ export async function writeCopy(packet: FinalInputPacket, criticFeedback?: strin
   const result = await generateObject({
     model: openai('gpt-4o'),
     schema: CopyOutputSchema,
-    system: `You are a copywriter. Write short, specific emails. No fluff.
+    system: `You write emails like a real human, not a marketing department.
 
-RULES:
-- Use the user's provided content directly - that's the value
-- Don't add enthusiasm or excitement
-- Every sentence must do something
-- If something isn't in the inputs, don't mention it
-- Match the observed tone from their website
-- NO fabricated claims or invented stories
-- NO AI clichés (thrilled, dive into, journey, etc.)`,
+GOOD EMAIL (what we want):
+---
+You're on the list.
+
+Here's something most people don't know: all-purpose cleaners work better if you let them sit for 30 seconds. The surfactants need time to break down grease.
+
+Try it on your stovetop first.
+
+G's Cleaning
+---
+
+BAD EMAIL (what we're fixing):
+---
+Welcome to the G's Cleaning family! We're thrilled to have you.
+
+Our all-purpose cleaner is designed with your needs in mind, suitable for all surfaces you rely on. This product protects your home while leaving no residue behind.
+
+As a valued customer, we've crafted this experience just for you. Visit our website to explore the full range of products designed to make your life easier.
+
+The G's Cleaning Team
+---
+
+WHY THE GOOD ONE WORKS:
+1. One specific fact (30 seconds, surfactants)
+2. One concrete action (stovetop)
+3. 4 short sentences total
+4. No selling, just value
+5. Sounds like a person texted you
+
+WHY THE BAD ONE FAILS:
+1. "We're thrilled" - hollow enthusiasm
+2. "designed with your needs in mind" - meaningless
+3. "suitable for all surfaces you rely on" - weird corporate phrasing
+4. "As a valued customer" - presumptuous
+5. "crafted this experience" - AI slop
+6. Too many things happening
+
+YOUR JOB:
+Write like the good example. If you don't have a specific fact, the email should be SHORTER, not padded with fluff.
+
+MAX 5 sentences for the main email. If you can say it in 3, say it in 3.`,
     prompt: buildWritePrompt(packet, criticFeedback),
   })
 
