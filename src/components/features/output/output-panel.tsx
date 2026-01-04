@@ -34,6 +34,28 @@ const STYLE_VARIANTS = {
   },
 }
 
+// Helper to detect and fix accidental JSON in the final copy
+function cleanFinalCopy(content: string): string {
+  if (!content) return content
+  
+  // Check if it looks like JSON (starts with { and contains known keys)
+  if (content.startsWith('{') && (content.includes('"hook"') || content.includes('"context"'))) {
+    try {
+      const parsed = JSON.parse(content)
+      // Convert structured JSON back to plain text
+      const parts = []
+      if (parsed.hook) parts.push(parsed.hook)
+      if (parsed.context) parts.push(parsed.context)
+      if (parsed.claim) parts.push(parsed.claim)
+      if (parsed.cta) parts.push(parsed.cta)
+      return parts.join('\n\n')
+    } catch {
+      // Not valid JSON, return as-is
+    }
+  }
+  return content
+}
+
 export function OutputPanel({ finalPackage, isLoading }: OutputPanelProps) {
   const [copiedTab, setCopiedTab] = useState<string | null>(null)
 
@@ -49,16 +71,16 @@ export function OutputPanel({ finalPackage, isLoading }: OutputPanelProps) {
     const content = `# Generated Copy
 
 ## Main Version
-${finalPackage.final}
+${cleanFinalCopy(finalPackage.final)}
 
 ${finalPackage.variants.direct ? `## Direct Style
-${finalPackage.variants.direct}` : ''}
+${cleanFinalCopy(finalPackage.variants.direct)}` : ''}
 
 ${finalPackage.variants.story_led ? `## Story-led Style
-${finalPackage.variants.story_led}` : ''}
+${cleanFinalCopy(finalPackage.variants.story_led)}` : ''}
 
 ${finalPackage.variants.conversational ? `## Conversational Style
-${finalPackage.variants.conversational}` : ''}
+${cleanFinalCopy(finalPackage.variants.conversational)}` : ''}
 
 ${finalPackage.extras.headlines?.length ? `## Headlines
 ${finalPackage.extras.headlines.map(h => `- ${h}`).join('\n')}` : ''}
@@ -106,32 +128,32 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
     )
   }
 
-  // Build tabs from new style variants
+  // Build tabs from new style variants - apply JSON cleanup as safety net
   const tabs = [
     { 
       id: 'main', 
       label: 'Main', 
-      content: finalPackage.final,
+      content: cleanFinalCopy(finalPackage.final),
       description: 'Balanced core version',
     },
     ...(finalPackage.variants.direct ? [{
       id: STYLE_VARIANTS.direct.id,
       label: STYLE_VARIANTS.direct.label,
-      content: finalPackage.variants.direct,
+      content: cleanFinalCopy(finalPackage.variants.direct),
       description: STYLE_VARIANTS.direct.description,
       icon: STYLE_VARIANTS.direct.icon,
     }] : []),
     ...(finalPackage.variants.story_led ? [{
       id: STYLE_VARIANTS.story_led.id,
       label: STYLE_VARIANTS.story_led.label,
-      content: finalPackage.variants.story_led,
+      content: cleanFinalCopy(finalPackage.variants.story_led),
       description: STYLE_VARIANTS.story_led.description,
       icon: STYLE_VARIANTS.story_led.icon,
     }] : []),
     ...(finalPackage.variants.conversational ? [{
       id: STYLE_VARIANTS.conversational.id,
       label: STYLE_VARIANTS.conversational.label,
-      content: finalPackage.variants.conversational,
+      content: cleanFinalCopy(finalPackage.variants.conversational),
       description: STYLE_VARIANTS.conversational.description,
       icon: STYLE_VARIANTS.conversational.icon,
     }] : []),
