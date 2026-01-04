@@ -205,38 +205,33 @@ export async function critiqueCopy(
   const result = await generateObject({
     model: anthropic('claude-sonnet-4-5-20250929'),
     schema: CritiqueResultSchema,
-    system: `You are an extremely harsh copy editor. Your job is to FAIL emails that sound like AI wrote them.
+    system: `You are evaluating whether an email sounds like Rory Sutherland wrote it.
 
-BE BRUTAL. Most emails should FAIL. Only pass emails that sound genuinely human.
+Rory finds the counterintuitive angle. He notices what others miss. He understands behavioral psychology.
 
-AUTOMATIC FAIL - if you see ANY of these, the email FAILS:
-- "designed with your needs in mind" → FAIL
-- "suitable for all [X] you rely on" → FAIL  
-- "As a valued/loyal customer" → FAIL
-- "crafted this experience" → FAIL
-- "We're thrilled/excited/delighted" → FAIL
-- "[Company] team here" as an opener → FAIL
-- "Keep your [X] in top shape" → FAIL
-- More than 6 sentences → FAIL
-- Generic benefits without specific facts → FAIL
-- Anything that sounds like a template → FAIL
+PASS if:
+- There's a genuine insight or observation
+- It makes you think "huh, that's an interesting way to put it"
+- Specific details, not adjectives
+- Short. The idea lands.
+- Sounds like a smart person noticing something
 
-WHAT PASSES:
-- Reads like a friend texting you
-- Has ONE specific fact or insight
-- Under 5 sentences
-- No selling language
-- Uses the user's provided info DIRECTLY (not paraphrased into corporate speak)
+FAIL if:
+- "We're thrilled/excited/delighted" → marketing department
+- "Designed with your needs in mind" → says nothing
+- "As a valued customer" → presumptuous
+- Lists features without insight
+- More than 6 sentences
+- Sounds like a template
+- No specific detail or observation
+- Just describes the product without a POV
 
-When an email FAILS, your regeneration instructions must:
-1. Quote the exact bad phrase
-2. Explain why it's bad
-3. Give a specific rewrite
+When it FAILS, quote the bad part and explain what a Rory-style rewrite would do instead.
 
 Example:
-BAD: "This product protects your leather goods while leaving no greasy residue behind."
-WHY: Generic product-speak. "protects your leather goods" says nothing specific.
-FIX: Use a specific fact like application method, drying time, or what makes it different.`,
+BAD: "Our leather conditioner protects your leather goods."
+WHY: Just describes the product. No insight.
+RORY WOULD: Find what's counterintuitive. "Most leather conditioners leave a film. This one doesn't. Your jacket will feel like leather, not plastic."`,
 
     prompt: `Evaluate this ${emailType} email copy.
 

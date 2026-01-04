@@ -82,22 +82,46 @@ export async function scrapeUrl(
   url: string,
   options?: FirecrawlScrapeOptions
 ): Promise<{ content: string; metadata: Record<string, unknown> } | null> {
-  const client = getFirecrawlClient()
-  const result = await client.scrape(url, options)
+  try {
+    const client = getFirecrawlClient()
+    const result = await client.scrape(url, options)
 
-  if (!result.success || !result.data) {
-    console.error('Firecrawl scrape failed:', result.error)
+    console.log('[Firecrawl] Raw result:', JSON.stringify(result).slice(0, 500))
+
+    if (!result.success) {
+      console.error('[Firecrawl] Scrape failed:', result.error)
+      return null
+    }
+
+    // Handle both direct data and nested data.data structure
+    const data = result.data
+    if (!data) {
+      console.error('[Firecrawl] No data in response')
+      return null
+    }
+
+    // Firecrawl v1 might nest content differently
+    const content = data.markdown || data.html || ''
+    
+    if (!content) {
+      console.error('[Firecrawl] No content in response. Keys:', Object.keys(data))
+      return null
+    }
+
+    console.log('[Firecrawl] Extracted content length:', content.length)
+
+    return {
+      content,
+      metadata: {
+        title: data.metadata?.title,
+        description: data.metadata?.description,
+        sourceURL: data.metadata?.sourceURL || url,
+        links: data.links,
+      },
+    }
+  } catch (error) {
+    console.error('[Firecrawl] Exception:', error)
     return null
-  }
-
-  return {
-    content: result.data.markdown || result.data.html || '',
-    metadata: {
-      title: result.data.metadata?.title,
-      description: result.data.metadata?.description,
-      sourceURL: result.data.metadata?.sourceURL || url,
-      links: result.data.links,
-    },
   }
 }
 
