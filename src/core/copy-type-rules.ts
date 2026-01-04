@@ -147,8 +147,8 @@ export interface CopyTypeRules {
 }
 
 export const COPY_TYPE_RULES: Record<string, CopyTypeRules> = {
-  email_sequence: {
-    type: 'email_sequence',
+  email: {
+    type: 'email',
     description: 'Transactional or nurture emails',
     // STRICT LIMITS - Emails must be SHORT and FOCUSED
     maxBeats: 4, // hook, tension, resolution, action

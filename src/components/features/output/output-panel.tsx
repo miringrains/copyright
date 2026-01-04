@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Download, Check } from 'lucide-react'
+import { Copy, Download, Check, Zap, BookOpen, MessageCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,28 @@ import type { FinalPackage } from '@/lib/schemas'
 interface OutputPanelProps {
   finalPackage: FinalPackage | null
   isLoading: boolean
+}
+
+// Style variant metadata
+const STYLE_VARIANTS = {
+  direct: {
+    id: 'direct',
+    label: 'Direct',
+    icon: Zap,
+    description: 'Confident, brief, no wasted words',
+  },
+  story_led: {
+    id: 'story_led',
+    label: 'Story-led',
+    icon: BookOpen,
+    description: 'Narrative, immersive, scene-setting',
+  },
+  conversational: {
+    id: 'conversational',
+    label: 'Conversational',
+    icon: MessageCircle,
+    description: 'Friendly, personal, informal',
+  },
 }
 
 export function OutputPanel({ finalPackage, isLoading }: OutputPanelProps) {
@@ -29,14 +51,14 @@ export function OutputPanel({ finalPackage, isLoading }: OutputPanelProps) {
 ## Main Version
 ${finalPackage.final}
 
-${finalPackage.variants.shorter ? `## Shorter Version
-${finalPackage.variants.shorter}` : ''}
+${finalPackage.variants.direct ? `## Direct Style
+${finalPackage.variants.direct}` : ''}
 
-${finalPackage.variants.punchier ? `## Punchier Version
-${finalPackage.variants.punchier}` : ''}
+${finalPackage.variants.story_led ? `## Story-led Style
+${finalPackage.variants.story_led}` : ''}
 
-${finalPackage.variants.safer ? `## Safer Version
-${finalPackage.variants.safer}` : ''}
+${finalPackage.variants.conversational ? `## Conversational Style
+${finalPackage.variants.conversational}` : ''}
 
 ${finalPackage.extras.headlines?.length ? `## Headlines
 ${finalPackage.extras.headlines.map(h => `- ${h}`).join('\n')}` : ''}
@@ -84,11 +106,35 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
     )
   }
 
+  // Build tabs from new style variants
   const tabs = [
-    { id: 'main', label: 'Main', content: finalPackage.final },
-    ...(finalPackage.variants.shorter ? [{ id: 'shorter', label: 'Shorter', content: finalPackage.variants.shorter }] : []),
-    ...(finalPackage.variants.punchier ? [{ id: 'punchier', label: 'Punchier', content: finalPackage.variants.punchier }] : []),
-    ...(finalPackage.variants.safer ? [{ id: 'safer', label: 'Safer', content: finalPackage.variants.safer }] : []),
+    { 
+      id: 'main', 
+      label: 'Main', 
+      content: finalPackage.final,
+      description: 'Balanced core version',
+    },
+    ...(finalPackage.variants.direct ? [{
+      id: STYLE_VARIANTS.direct.id,
+      label: STYLE_VARIANTS.direct.label,
+      content: finalPackage.variants.direct,
+      description: STYLE_VARIANTS.direct.description,
+      icon: STYLE_VARIANTS.direct.icon,
+    }] : []),
+    ...(finalPackage.variants.story_led ? [{
+      id: STYLE_VARIANTS.story_led.id,
+      label: STYLE_VARIANTS.story_led.label,
+      content: finalPackage.variants.story_led,
+      description: STYLE_VARIANTS.story_led.description,
+      icon: STYLE_VARIANTS.story_led.icon,
+    }] : []),
+    ...(finalPackage.variants.conversational ? [{
+      id: STYLE_VARIANTS.conversational.id,
+      label: STYLE_VARIANTS.conversational.label,
+      content: finalPackage.variants.conversational,
+      description: STYLE_VARIANTS.conversational.description,
+      icon: STYLE_VARIANTS.conversational.icon,
+    }] : []),
   ]
 
   return (
@@ -104,16 +150,23 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="main" className="w-full">
-          <TabsList>
-            {tabs.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
+          <TabsList className="grid w-full grid-cols-4">
+            {tabs.map((tab) => {
+              const Icon = 'icon' in tab ? tab.icon : null
+              return (
+                <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-1.5">
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {tab.label}
+                </TabsTrigger>
+              )
+            })}
           </TabsList>
           
           {tabs.map((tab) => (
             <TabsContent key={tab.id} value={tab.id} className="mt-4">
+              {'description' in tab && tab.description && (
+                <p className="mb-3 text-sm text-muted-foreground">{tab.description}</p>
+              )}
               <div className="relative">
                 <div className="min-h-[200px] whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 font-mono text-sm">
                   {tab.content}
@@ -195,6 +248,31 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
                 </ul>
               </div>
             )}
+
+            {finalPackage.extras.cta_options && finalPackage.extras.cta_options.length > 0 && (
+              <div>
+                <h4 className="mb-2 font-medium">CTA Options</h4>
+                <ul className="space-y-1">
+                  {finalPackage.extras.cta_options.map((c, i) => (
+                    <li key={i} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
+                      <span>{c}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={() => copyToClipboard(c, `cta-${i}`)}
+                      >
+                        {copiedTab === `cta-${i}` ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
@@ -217,4 +295,3 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
     </Card>
   )
 }
-

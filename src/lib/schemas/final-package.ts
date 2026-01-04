@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
-// Variants object - all fields required for structured output compatibility
+// Style variants - three distinct approaches
 export const VariantsSchema = z.object({
-  shorter: z.string(),
-  punchier: z.string(),
-  safer: z.string(),
+  direct: z.string().describe('Direct style: confident, brief, no wasted words'),
+  story_led: z.string().describe('Story-led style: narrative, immersive, scene-setting'),
+  conversational: z.string().describe('Conversational style: friendly, personal, informal'),
 })
 export type Variants = z.infer<typeof VariantsSchema>
 

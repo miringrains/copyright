@@ -17,6 +17,8 @@ import {
 import { 
   getAllCopyTypes, 
   getCopyTypeConfig, 
+  getEmailCampaignFields,
+  EMAIL_CAMPAIGN_TYPES,
   type InputField,
   type CopyTypeConfig 
 } from '@/lib/copy-type-inputs'
@@ -29,6 +31,7 @@ interface SmartInputPanelProps {
 
 export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelProps) {
   const [selectedType, setSelectedType] = useState<string>('')
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('')
   const [config, setConfig] = useState<CopyTypeConfig | null>(null)
   const [formData, setFormData] = useState<Record<string, string | string[]>>({})
   const [showOptional, setShowOptional] = useState(false)
@@ -43,13 +46,24 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
       const newConfig = getCopyTypeConfig(selectedType)
       setConfig(newConfig || null)
       setFormData({})
+      setSelectedCampaign('')
       setResearchData('')
     }
   }, [selectedType])
 
+  // Get campaign-specific fields
+  const campaignFields = selectedType === 'email' && selectedCampaign 
+    ? getEmailCampaignFields(selectedCampaign) 
+    : []
+
   // Handle field changes
   const handleFieldChange = (fieldId: string, value: string | string[]) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }))
+    
+    // If this is the campaign_type field, update selectedCampaign
+    if (fieldId === 'campaign_type' && typeof value === 'string') {
+      setSelectedCampaign(value)
+    }
   }
 
   // Handle URL list changes
@@ -105,11 +119,19 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
     // Build research context from form data
     const researchContext: string[] = []
     
+    // Add campaign type context for emails
+    if (selectedType === 'email' && selectedCampaign) {
+      const campaignInfo = EMAIL_CAMPAIGN_TYPES.find(c => c.value === selectedCampaign)
+      if (campaignInfo) {
+        researchContext.push(`Campaign Type: ${campaignInfo.label} - ${campaignInfo.description}`)
+      }
+    }
+    
     // Add all form data as context
+    const allFields = [...(config.requiredFields || []), ...(config.optionalFields || []), ...campaignFields]
     for (const [key, value] of Object.entries(formData)) {
       if (value && (typeof value === 'string' ? value.trim() : value.length > 0)) {
-        const field = [...config.requiredFields, ...config.optionalFields]
-          .find(f => f.id === key)
+        const field = allFields.find(f => f.id === key)
         const label = field?.label || key
         const displayValue = Array.isArray(value) ? value.filter(Boolean).join(', ') : value
         if (displayValue) {
@@ -147,7 +169,7 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
 
     const taskSpec: TaskSpec = {
       copy_type: getCopyTypeEnum(selectedType),
-      channel: getChannelFromType(selectedType),
+      channel: getChannelFromType(selectedType, selectedCampaign),
       audience: {
         who: (formData['target_audience'] as string) || 'Target audience not specified',
         context: researchContext.join('\n\n'),
@@ -166,7 +188,7 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
                           (formData['topic'] as string) || 'Product/Service',
         offer_or_claim_seed: (formData['value_proposition'] as string) || 
                              (formData['offer'] as string) || 
-                             (formData['main_promise'] as string) || undefined,
+                             (formData['teaching_point'] as string) || undefined,
         proof_material: [],
         must_include: [],
         must_avoid: [],
@@ -189,7 +211,7 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
   }
 
   // Render a single field
-  const renderField = (field: InputField) => {
+  const renderField = (field: InputField, isCampaignField: boolean = false) => {
     const value = formData[field.id]
 
     switch (field.type) {
@@ -317,11 +339,27 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
   // Check if form is valid
   const isFormValid = () => {
     if (!config) return false
-    return config.requiredFields.every(field => {
+    
+    // Check required fields from config
+    const requiredValid = config.requiredFields.every(field => {
       const value = formData[field.id]
       if (Array.isArray(value)) return value.some(v => v.trim())
       return value && value.trim()
     })
+    
+    // For email, also check campaign-specific required fields
+    if (selectedType === 'email' && selectedCampaign) {
+      const campaignValid = campaignFields
+        .filter(f => f.required)
+        .every(field => {
+          const value = formData[field.id]
+          if (Array.isArray(value)) return value.some(v => v.trim())
+          return value && value.trim()
+        })
+      return requiredValid && campaignValid
+    }
+    
+    return requiredValid
   }
 
   return (
@@ -371,6 +409,29 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
                 </div>
               ))}
             </div>
+
+            {/* Campaign-Specific Fields for Email */}
+            {selectedType === 'email' && selectedCampaign && campaignFields.length > 0 && (
+              <div className="border-t pt-4">
+                <div className="text-sm font-medium text-primary mb-4">
+                  {EMAIL_CAMPAIGN_TYPES.find(c => c.value === selectedCampaign)?.label} Details
+                </div>
+                <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+                  {campaignFields.map((field) => (
+                    <div key={field.id} className="space-y-2">
+                      <Label htmlFor={field.id}>
+                        {field.label}
+                        {field.required && <span className="text-destructive ml-1">*</span>}
+                      </Label>
+                      {field.description && (
+                        <p className="text-xs text-muted-foreground">{field.description}</p>
+                      )}
+                      {renderField(field, true)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Optional Fields Toggle */}
             {config.optionalFields.length > 0 && (
@@ -446,25 +507,30 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
 function getCopyTypeEnum(type: string): TaskSpec['copy_type'] {
   const copyTypeMap: Record<string, TaskSpec['copy_type']> = {
     landing_page: 'website',
-    website_copy: 'website',
-    email_sequence: 'email',
-    sales_letter: 'website',
-    ad_copy: 'social',
-    blog_article: 'article',
-    case_study: 'article',
+    website: 'website',
+    email: 'email',
+    article: 'article',
   }
   return copyTypeMap[type] || 'website'
 }
 
-function getChannelFromType(type: string): TaskSpec['channel'] {
+function getChannelFromType(type: string, campaign?: string): TaskSpec['channel'] {
+  if (type === 'email') {
+    // Map campaign types to channels
+    const campaignChannels: Record<string, TaskSpec['channel']> = {
+      welcome: 'email_newsletter',
+      nurture: 'email_newsletter',
+      launch: 'email_newsletter',
+      abandoned_cart: 'email_newsletter',
+      reengagement: 'email_newsletter',
+    }
+    return campaignChannels[campaign || ''] || 'email_newsletter'
+  }
+  
   const channelMap: Record<string, TaskSpec['channel']> = {
     landing_page: 'landing_page',
-    website_copy: 'homepage',
-    email_sequence: 'email_newsletter',
-    sales_letter: 'landing_page',
-    ad_copy: 'linkedin_post',
-    blog_article: 'blog_post',
-    case_study: 'case_study',
+    website: 'homepage',
+    article: 'blog_post',
   }
   return channelMap[type] || 'landing_page'
 }
@@ -472,12 +538,9 @@ function getChannelFromType(type: string): TaskSpec['channel'] {
 function getTargetLength(type: string): number {
   const lengthMap: Record<string, number> = {
     landing_page: 800,
-    website_copy: 500,
-    email_sequence: 1500,
-    sales_letter: 2000,
-    ad_copy: 150,
-    blog_article: 1500,
-    case_study: 1000,
+    website: 500,
+    email: 150,
+    article: 1500,
   }
   return lengthMap[type] || 500
 }
@@ -503,4 +566,3 @@ function getToneFormality(tone: string): 'low' | 'medium' | 'high' {
   }
   return formalityMap[tone] || 'medium'
 }
-
