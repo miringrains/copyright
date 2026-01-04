@@ -72,9 +72,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<PipelineRespo
     if (body.action === 'start') {
       let scanResult: ScanResult
 
-      if (body.websiteContent) {
+      console.log('[Pipeline V2] websiteContent length:', body.websiteContent?.length || 0)
+      console.log('[Pipeline V2] websiteContent preview:', body.websiteContent?.slice(0, 200) || 'NONE')
+
+      if (body.websiteContent && body.websiteContent.length > 50) {
         // Scan the website
+        console.log('[Pipeline V2] Calling scanWebsite...')
         scanResult = await scanWebsite(body.websiteContent, body.emailType)
+        console.log('[Pipeline V2] Scan result facts:', scanResult.facts.length)
       } else {
         // No website content - create minimal scan result
         scanResult = {

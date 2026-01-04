@@ -53,10 +53,15 @@ export class FirecrawlClient {
         }
       }
 
-      const data = await response.json()
+      const json = await response.json()
+      console.log('[Firecrawl] API response keys:', Object.keys(json))
+      
+      // Firecrawl v1 returns { success: true, data: { markdown: "..." } }
+      // We need to return the inner data object
       return {
-        success: true,
-        data,
+        success: json.success ?? true,
+        data: json.data,
+        error: json.error,
       }
     } catch (error) {
       return {
