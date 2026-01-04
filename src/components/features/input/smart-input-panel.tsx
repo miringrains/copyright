@@ -22,10 +22,15 @@ import {
   type InputField,
   type CopyTypeConfig 
 } from '@/lib/copy-type-inputs'
-import type { TaskSpec } from '@/lib/schemas'
+// Simplified input for the new 3-phase pipeline
+interface SimpleGenerateInput {
+  formData: Record<string, string>
+  websiteContent: string | null
+  campaignType: string
+}
 
 interface SmartInputPanelProps {
-  onGenerate: (taskSpec: TaskSpec) => void
+  onGenerate: (input: SimpleGenerateInput) => void
   isGenerating: boolean
 }
 
@@ -110,13 +115,13 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
     }
   }
 
-  // Build TaskSpec and generate
+  // Simple: collect data, scrape if URL, pass to pipeline
   const handleGenerate = async () => {
     if (!config) return
 
     setIsResearching(true)
     
-    // Prepare form data as a simple record
+    // Convert form data to simple strings
     const formDataRecord: Record<string, string> = {}
     for (const [key, value] of Object.entries(formData)) {
       if (typeof value === 'string') {
@@ -126,28 +131,16 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
       }
     }
     
-    // Build campaign-specific context
-    const researchContext: string[] = []
-    
-    // Add campaign type context for emails
-    if (selectedType === 'email' && selectedCampaign) {
-      const campaignInfo = EMAIL_CAMPAIGN_TYPES.find(c => c.value === selectedCampaign)
-      if (campaignInfo) {
-        researchContext.push(`Campaign Type: ${campaignInfo.label}`)
-        researchContext.push(`Campaign Goal: ${campaignInfo.description}`)
-      }
+    // Add campaign type to form data
+    if (selectedCampaign) {
+      formDataRecord['campaign_type'] = selectedCampaign
     }
-
-    // Variables for interpreted content
-    let interpretedContext = ''
-    let proofMaterial: Array<{type: string, content: string}> = []
-    let mustInclude: string[] = []
-
-    // Auto-scrape and INTERPRET the company website if URL provided
+    
+    // Scrape website if URL provided
+    let websiteContent: string | null = null
     const companyUrl = formData['destination_url'] as string
     if (companyUrl && companyUrl.startsWith('http')) {
       try {
-        // Step 1: Scrape the website
         const scrapeResponse = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -156,143 +149,21 @@ export function SmartInputPanel({ onGenerate, isGenerating }: SmartInputPanelPro
         
         if (scrapeResponse.ok) {
           const scrapeData = await scrapeResponse.json()
-          
-          if (scrapeData.content) {
-            // Step 2: INTERPRET the content based on campaign type
-            // This is the key change - we don't dump raw content anymore
-            const interpretResponse = await fetch('/api/interpret', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                websiteContent: scrapeData.content,
-                campaignType: selectedCampaign || 'welcome',
-                formData: formDataRecord,
-              }),
-            })
-            
-            if (interpretResponse.ok) {
-              const interpretData = await interpretResponse.json()
-              interpretedContext = interpretData.formattedContext || ''
-              proofMaterial = interpretData.proofMaterial || []
-              mustInclude = interpretData.mustInclude || []
-              
-              // Add ONLY the interpreted, filtered content - not the raw dump
-              if (interpretedContext) {
-                researchContext.push(`--- PRODUCT INFO (from website) ---\n${interpretedContext}`)
-              }
-            } else {
-              // Fallback: use minimal context if interpretation fails
-              console.error('Interpretation failed, using minimal context')
-            }
-          }
+          websiteContent = scrapeData.content || null
         }
       } catch (error) {
-        console.error('Website scrape/interpret failed:', error)
-      }
-    }
-
-    // Add competitor research if available (this stays as-is for now)
-    if (researchData) {
-      researchContext.push(`--- COMPETITOR RESEARCH ---\n${researchData}`)
-    }
-
-    // Step 3: VOICE MATCHING - Find the perfect real person to write this copy
-    let voiceDirective = ''
-    let voiceMatchInfo = ''
-    try {
-      const productName = (formData['company_name'] as string) || 
-                          (formData['product_name'] as string) || 'Product'
-      const targetAudience = (formData['target_audience'] as string) || 'Target audience'
-      
-      // Determine industry from context clues
-      const industry = detectIndustry(productName, targetAudience, interpretedContext)
-      
-      const voiceResponse = await fetch('/api/voice-match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product: productName,
-          audience: targetAudience,
-          industry,
-          purpose: getCampaignPurpose(selectedCampaign),
-        }),
-      })
-      
-      if (voiceResponse.ok) {
-        const voiceData = await voiceResponse.json()
-        voiceDirective = voiceData.voiceDirective || ''
-        if (voiceData.voiceMatch) {
-          voiceMatchInfo = `Voice: ${voiceData.voiceMatch.person} (${voiceData.voiceMatch.known_for})`
-          researchContext.push(`--- VOICE MATCH ---\n${voiceMatchInfo}`)
-        }
-      }
-    } catch (error) {
-      console.error('Voice matching failed:', error)
-      // Continue without voice matching - it's an enhancement, not a requirement
-    }
-    
-    // Add form data as structured context (not a dump)
-    const allFields = [...(config.requiredFields || []), ...(config.optionalFields || []), ...campaignFields]
-    researchContext.push('--- USER-PROVIDED INFO ---')
-    for (const [key, value] of Object.entries(formData)) {
-      if (value && (typeof value === 'string' ? value.trim() : (value as string[]).length > 0)) {
-        const field = allFields.find(f => f.id === key)
-        const label = field?.label || key
-        const displayValue = Array.isArray(value) ? value.filter(Boolean).join(', ') : value
-        // Skip URL fields and campaign_type (already handled)
-        if (displayValue && !key.includes('url') && key !== 'campaign_type') {
-          researchContext.push(`${label}: ${displayValue}`)
-        }
+        console.error('Website scrape failed:', error)
       }
     }
 
     setIsResearching(false)
 
-    const taskSpec: TaskSpec = {
-      copy_type: getCopyTypeEnum(selectedType),
-      channel: getChannelFromType(selectedType, selectedCampaign),
-      audience: {
-        who: (formData['target_audience'] as string) || 'Target audience not specified',
-        context: researchContext.join('\n\n'),
-        skepticism_level: 'medium',
-        prior_knowledge: 'medium',
-      },
-      goal: {
-        primary_action: (formData['desired_action'] as string) || 
-                        (formData['goal'] as string) || 
-                        'Take the next step',
-        success_metric: getCampaignSuccessMetric(selectedCampaign),
-      },
-      inputs: {
-        product_or_topic: (formData['company_name'] as string) || 
-                          (formData['product_name'] as string) || 
-                          (formData['topic'] as string) || 'Product/Service',
-        offer_or_claim_seed: (formData['value_proposition'] as string) || 
-                             (formData['offer'] as string) || 
-                             (formData['teaching_point'] as string) || undefined,
-        proof_material: proofMaterial.map(p => ({ 
-          type: p.type as 'data' | 'quote' | 'case' | 'mechanism' | 'constraint' | 'comparison', 
-          content: p.content 
-        })),
-        must_include: mustInclude,
-        must_avoid: [],
-      },
-      voice_profile: {
-        persona: getEmailPersona(selectedCampaign),
-        formality: getToneFormality((formData['tone'] as string) || 'conversational'),
-        stance: (formData['key_differentiators'] as string) || 'We deliver value',
-        taboos: [],
-        // Pass voice directive as reference - this is the key to channeling a real voice
-        reference_texts: voiceDirective ? [voiceDirective] : [],
-      },
-      length_budget: {
-        unit: 'words',
-        target: getTargetLength(selectedType),
-        hard_max: Math.round(getTargetLength(selectedType) * 1.5),
-      },
-    }
-
-    onGenerate(taskSpec)
+    // Pass simple data to pipeline - it handles the rest
+    onGenerate({
+      formData: formDataRecord,
+      websiteContent,
+      campaignType: selectedCampaign || selectedType,
+    })
   }
 
   // Render a single field
