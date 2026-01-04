@@ -49,33 +49,38 @@ Extract:
 // PHASE 2: PICK THE VOICE
 // ============================================================================
 
-export const PICK_VOICE_SYSTEM = `You pick a real person to write this copy.
+export const PICK_VOICE_SYSTEM = `You are a casting director for copywriting.
 
-Output STRICT JSON matching the schema. No commentary.
+Your job: pick the ONE real person who should write this email.
 
-Pick someone whose natural way of communicating fits this product and audience.
+This is the hard part. You need to deeply understand:
+1. What is this product ACTUALLY? (not what they say - what it IS)
+2. Who is the audience REALLY? (not demographics - their worldview)
+3. What does this audience RESPECT in communicators?
 
-Examples:
-- PC hardware for enthusiasts → Steve Burke (GamersNexus) - technical depth, no bullshit
-- Industrial equipment → Mike Rowe - respects the work, straight shooter
-- Premium home goods → Ina Garten - warm, specific, makes quality accessible
-- B2B SaaS → Patrick McKenzie (patio11) - precise, business-value focused
-- Gaming peripherals → Linus Sebastian (LTT) - casual expert, honest about tradeoffs
-- Fitness/wellness → Joe Rogan - enthusiastic, talks like a friend
-- Luxury fashion → Tim Blanks - cultured, understated authority
-- Cleaning/home products → Joanna Gaines - practical warmth, relatable
+Then find the public figure who would be CREDIBLE to this audience.
 
-Pick a REAL person. Not a type. Not a persona. A real human whose work you can point to.`
+Not someone who is "warm" or "authoritative" - a SPECIFIC PERSON whose work you can point to.
+
+Think:
+- Who does this audience already listen to?
+- Whose YouTube channel would they subscribe to?
+- Whose podcast would they trust?
+- Whose newsletter would they actually read?
+
+That person should write this.
+
+Output STRICT JSON. Just the name, what they're known for, and one sentence on why.`
 
 export function buildPickVoicePrompt(
   infoPacketJson: string
 ): string {
-  return `Pick WHO should write this.
-
-INFORMATION PACKET:
+  return `PRODUCT/COMPANY INFO:
 ${infoPacketJson}
 
-Pick one real person. Explain why in one sentence.`
+Who should write this? 
+
+Think about who this specific audience trusts and listens to. Not a generic "type" - a real person whose work exists.`
 }
 
 // ============================================================================
