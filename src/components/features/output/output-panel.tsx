@@ -168,7 +168,7 @@ ${finalPackage.extras.email_subject_lines.map(s => `- ${s}`).join('\n')}` : ''}
                 <p className="mb-3 text-sm text-muted-foreground">{tab.description}</p>
               )}
               <div className="relative">
-                <div className="min-h-[200px] whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 font-mono text-sm">
+                <div className="min-h-[200px] whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 pr-20 font-mono text-sm">
                   {tab.content}
                 </div>
                 <Button

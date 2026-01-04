@@ -118,6 +118,28 @@ export const UNIVERSAL_FORBIDDEN_PATTERNS = [
   /take your .* to the next level/i,
   /supercharge your/i,
   /turbocharge your/i,
+  
+  // Classic AI slop patterns
+  /no \w+[,.]?\s*no \w+[,.]?\s*(just|only)\s/i, // "No X, no Y, just Z"
+  /most \w+ (miss|overlook|forget|ignore) this/i, // "Most X miss this"
+  /here'?s? (the thing|what|why)/i, // "Here's the thing..."
+  /let me (tell you|explain|break)/i, // "Let me tell you..."
+  /the (truth|reality|fact) is/i, // "The truth is..."
+  /you see,/i, // "You see,"
+  /think about it/i, // "Think about it"
+  /imagine (a world|if|this)/i, // "Imagine if..."
+  /what if I told you/i, // Matrix-style
+  /but wait,? there'?s more/i, // Infomercial
+  /spoiler alert/i,
+  /plot twist/i,
+  /the secret is/i,
+  /little-known/i,
+  /not many people know/i,
+  /the best part\??/i, // "The best part?"
+  /but here'?s the (kicker|catch|twist)/i,
+  /see it for yourself/i, // Presumptuous
+  /proof that/i, // Usually followed by unproven claim
+  
   // Em dashes now allowed for rhythm - checked for overuse separately
 ]
 
