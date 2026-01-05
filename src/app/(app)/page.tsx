@@ -1,53 +1,147 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { Sparkles, Loader2, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Sparkles, Loader2, Plus, RotateCcw, Clock, FileText, PenTool, Wand2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { InteractiveTerminal } from '@/components/features/pipeline/interactive-terminal'
-import { getEmailTypeOptions } from '@/core/email-requirements'
-import type { PipelinePhase, CopyOutput } from '@/core/pipeline/question-orchestrator'
-import type { ScanResult, QuestionForUser } from '@/lib/schemas/scan-result'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type AppStatus = 'input' | 'scanning' | 'questions' | 'writing' | 'complete' | 'error'
+type EmailType = 'welcome' | 'abandoned_cart' | 'nurture' | 'launch' | 'reengagement'
+
+type Phase = 'input' | 'scraping' | 'outlining' | 'writing' | 'done' | 'error'
 
 interface FormData {
   company_name: string
   website_url: string
-  email_type: string
-  target_audience: string
-  sender_persona: string
+  email_type: EmailType | ''
+  sender_name: string
+  product_focus: string
+}
+
+interface EmailResult {
+  outline: {
+    topic: string
+    angle: string
+    opener: string
+    body_points: string[]
+    closer: string
+    facts_used: string[]
+  }
+  email: {
+    subject: string
+    body: string
+    shorter: string
+    warmer: string
+  }
+  timing: {
+    outline: number
+    write: number
+    variants: number
+  }
+}
+
+const EMAIL_TYPES: { value: EmailType; label: string; desc: string }[] = [
+  { value: 'welcome', label: 'Welcome', desc: 'New subscriber greeting' },
+  { value: 'abandoned_cart', label: 'Abandoned Cart', desc: 'Recover lost sales' },
+  { value: 'nurture', label: 'Nurture', desc: 'Build relationship with value' },
+  { value: 'launch', label: 'Launch', desc: 'Announce something new' },
+  { value: 'reengagement', label: 'Re-engagement', desc: 'Win back inactive users' },
+]
+
+// ============================================================================
+// PROGRESS DISPLAY
+// ============================================================================
+
+function PhaseProgress({ phase, timing }: { phase: Phase; timing?: EmailResult['timing'] }) {
+  const phases = [
+    { id: 'scraping', label: 'Scan Website', icon: FileText },
+    { id: 'outlining', label: 'Create Outline', icon: PenTool },
+    { id: 'writing', label: 'Write Email', icon: Wand2 },
+  ]
+
+  const getPhaseStatus = (phaseId: string) => {
+    const order = ['scraping', 'outlining', 'writing', 'done']
+    const currentIndex = order.indexOf(phase)
+    const phaseIndex = order.indexOf(phaseId)
+    
+    if (phaseIndex < currentIndex) return 'complete'
+    if (phaseIndex === currentIndex) return 'active'
+    return 'pending'
+  }
+
+  return (
+    <Card className="border-2 border-primary/30">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between gap-4">
+          {phases.map((p, i) => {
+            const status = getPhaseStatus(p.id)
+            const Icon = p.icon
+            
+            return (
+              <div key={p.id} className="flex items-center gap-3 flex-1">
+                <div className={`
+                  w-10 h-10 rounded-full flex items-center justify-center
+                  ${status === 'complete' ? 'bg-primary text-primary-foreground' : ''}
+                  ${status === 'active' ? 'bg-primary/20 text-primary border-2 border-primary' : ''}
+                  ${status === 'pending' ? 'bg-muted text-muted-foreground' : ''}
+                `}>
+                  {status === 'active' ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Icon className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${
+                    status === 'pending' ? 'text-muted-foreground' : ''
+                  }`}>
+                    {p.label}
+                  </p>
+                  {status === 'complete' && timing && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {p.id === 'scraping' && 'Done'}
+                      {p.id === 'outlining' && `${Math.round(timing.outline / 1000)}s`}
+                      {p.id === 'writing' && `${Math.round((timing.write + timing.variants) / 1000)}s`}
+                    </p>
+                  )}
+                </div>
+                {i < phases.length - 1 && (
+                  <div className={`h-0.5 w-8 ${
+                    getPhaseStatus(phases[i + 1].id) !== 'pending' ? 'bg-primary' : 'bg-muted'
+                  }`} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 // ============================================================================
-// OUTPUT PANEL
+// OUTPUT DISPLAY
 // ============================================================================
 
-interface OutputPanelProps {
-  copy: CopyOutput | null
-  isVisible: boolean
-}
-
-function OutputPanel({ copy, isVisible }: OutputPanelProps) {
+function OutputPanel({ result }: { result: EmailResult }) {
   const [activeTab, setActiveTab] = useState<'main' | 'shorter' | 'warmer'>('main')
   const [copied, setCopied] = useState(false)
-
-  if (!isVisible || !copy) return null
+  const [showOutline, setShowOutline] = useState(false)
 
   const tabs = [
-    { id: 'main', label: 'Main', content: copy.main },
-    { id: 'shorter', label: 'Shorter', content: copy.shorter },
-    { id: 'warmer', label: 'Warmer', content: copy.warmer },
-  ] as const
+    { id: 'main' as const, label: 'Main', content: result.email.body },
+    { id: 'shorter' as const, label: 'Shorter', content: result.email.shorter },
+    { id: 'warmer' as const, label: 'Warmer', content: result.email.warmer },
+  ]
 
-  const currentContent = tabs.find(t => t.id === activeTab)?.content || copy.main
+  const currentContent = tabs.find(t => t.id === activeTab)?.content || result.email.body
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(currentContent)
@@ -56,61 +150,100 @@ function OutputPanel({ copy, isVisible }: OutputPanelProps) {
   }
 
   return (
-    <Card className="border-2 border-primary/50">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Your Copy
-          </span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCopy}
-            className="gap-1.5"
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Tabs */}
-        <div className="flex gap-2 border-b">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 font-mono text-sm">
-          {currentContent}
-        </div>
-
-        {/* Subject Lines */}
-        {copy.subjectLines.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Subject Lines</p>
-            <div className="space-y-1">
-              {copy.subjectLines.map((line, i) => (
-                <div key={i} className="text-sm p-2 bg-muted/50 rounded">
-                  {line}
-                </div>
-              ))}
+    <div className="space-y-4">
+      {/* Subject line */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Label className="text-muted-foreground">Subject:</Label>
+              <span className="font-medium">{result.email.subject}</span>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(result.email.subject)}
+              className="text-xs"
+            >
+              Copy
+            </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Main email output */}
+      <Card className="border-2 border-primary/50">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Your Email
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCopy}
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Tabs */}
+          <div className="flex gap-2 border-b">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 font-mono text-sm">
+            {currentContent}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Outline (collapsible) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <button 
+            onClick={() => setShowOutline(!showOutline)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              View Outline
+            </CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {showOutline ? '−' : '+'}
+            </span>
+          </button>
+        </CardHeader>
+        {showOutline && (
+          <CardContent className="pt-0">
+            <div className="space-y-2 text-sm">
+              <p><span className="font-medium">Topic:</span> {result.outline.topic}</p>
+              <p><span className="font-medium">Angle:</span> {result.outline.angle}</p>
+              <p><span className="font-medium">Facts used:</span></p>
+              <ul className="list-disc list-inside ml-2 text-muted-foreground">
+                {result.outline.facts_used.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
         )}
-      </CardContent>
-    </Card>
+      </Card>
+    </div>
   )
 }
 
@@ -119,194 +252,111 @@ function OutputPanel({ copy, isVisible }: OutputPanelProps) {
 // ============================================================================
 
 export default function HomePage() {
-  // Form state
   const [formData, setFormData] = useState<FormData>({
     company_name: '',
     website_url: '',
     email_type: '',
-    target_audience: '',
-    sender_persona: '',
+    sender_name: '',
+    product_focus: '',
   })
 
-  // Pipeline state
-  const [status, setStatus] = useState<AppStatus>('input')
-  const [phase, setPhase] = useState<PipelinePhase>('scan')
-  const [phaseMessage, setPhaseMessage] = useState('')
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null)
-  const [questions, setQuestions] = useState<QuestionForUser[]>([])
-  const [copyOutput, setCopyOutput] = useState<CopyOutput | null>(null)
+  const [phase, setPhase] = useState<Phase>('input')
+  const [result, setResult] = useState<EmailResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const emailTypes = getEmailTypeOptions()
-
-  // Handle form field change
-  const handleFieldChange = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  // Check if form is valid
   const isFormValid = () => {
     return (
       formData.company_name.trim() &&
-      formData.email_type.trim() &&
-      formData.target_audience.trim()
+      formData.website_url.startsWith('http') &&
+      formData.email_type
     )
   }
 
-  // Start the pipeline
   const handleStart = async () => {
     if (!isFormValid()) return
 
-    setStatus('scanning')
-    setPhase('scan')
-    setPhaseMessage('Scanning website...')
-    setCopyOutput(null)
+    setPhase('scraping')
+    setResult(null)
     setError(null)
 
     try {
-      // Scrape website if URL provided
-      let websiteContent: string | null = null
-      if (formData.website_url.startsWith('http')) {
-        setPhaseMessage(`Scanning ${formData.website_url}...`)
-        try {
-          const scrapeResponse = await fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: formData.website_url }),
-          })
-          
-          if (scrapeResponse.ok) {
-            const scrapeData = await scrapeResponse.json()
-            websiteContent = scrapeData.content || null
-            if (!websiteContent) {
-              console.warn('Scrape returned empty content')
-            } else {
-              console.log('Scraped', websiteContent.length, 'chars')
-            }
-          } else {
-            const errorData = await scrapeResponse.json().catch(() => ({}))
-            console.error('Scrape failed:', scrapeResponse.status, errorData)
-            setPhaseMessage(`Scrape failed: ${errorData.error || scrapeResponse.status}`)
-          }
-        } catch (scrapeError) {
-          console.error('Scrape error:', scrapeError)
-          setPhaseMessage('Website scrape failed - continuing without it')
-        }
+      // Step 1: Scrape website
+      const scrapeResponse = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: formData.website_url }),
+      })
+
+      if (!scrapeResponse.ok) {
+        const err = await scrapeResponse.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to scrape website')
       }
 
-      // Start pipeline (scan + questions)
-      setPhase('analyze')
-      setPhaseMessage('Analyzing content...')
+      const scrapeData = await scrapeResponse.json()
+      
+      if (!scrapeData.content || scrapeData.content.length < 100) {
+        throw new Error('Could not get enough content from website')
+      }
 
-      const response = await fetch('/api/pipeline-v2', {
+      // Step 2-4: Run email pipeline
+      setPhase('outlining')
+
+      const emailResponse = await fetch('/api/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'start',
-          websiteContent,
+          websiteContent: scrapeData.content,
           emailType: formData.email_type,
-          formData: {
-            company_name: formData.company_name,
-            target_audience: formData.target_audience,
-            sender_persona: formData.sender_persona || formData.company_name,
-          },
+          companyName: formData.company_name,
+          senderName: formData.sender_name || formData.company_name,
+          productOrTopic: formData.product_focus || undefined,
         }),
       })
 
-      const data = await response.json()
+      // Update to writing phase while waiting
+      setPhase('writing')
 
-      if (!data.success) {
-        throw new Error(data.error || 'Pipeline failed')
+      const emailData = await emailResponse.json()
+
+      if (!emailData.success) {
+        throw new Error(emailData.error || 'Failed to generate email')
       }
 
-      // Questions ready
-      setScanResult(data.scanResult)
-      setQuestions(data.questions)
-      setStatus('questions')
-      setPhase('questions')
-      setPhaseMessage('Questions ready')
+      setResult(emailData)
+      setPhase('done')
 
     } catch (err) {
-      setStatus('error')
       setPhase('error')
-      setPhaseMessage(err instanceof Error ? err.message : 'Failed to start')
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : 'Something went wrong')
     }
   }
 
-  // Handle question answers
-  const handleAnswersSubmit = async (answers: Record<string, string>) => {
-    if (!scanResult) return
-
-    setStatus('writing')
-    setPhase('write')
-    setPhaseMessage('Writing copy...')
-
-    try {
-      const response = await fetch('/api/pipeline-v2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'write',
-          scanResult,
-          emailType: formData.email_type,
-          formData: {
-            company_name: formData.company_name,
-            target_audience: formData.target_audience,
-            sender_persona: formData.sender_persona || formData.company_name,
-          },
-          answers,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Writing failed')
-      }
-
-      setPhase('complete')
-      setPhaseMessage('Done')
-      setCopyOutput(data.copy)
-      setStatus('complete')
-
-    } catch (err) {
-      setStatus('error')
-      setPhase('error')
-      setPhaseMessage(err instanceof Error ? err.message : 'Writing failed')
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    }
-  }
-
-  // Reset to start over
   const handleReset = () => {
-    setStatus('input')
-    setPhase('scan')
-    setPhaseMessage('')
-    setScanResult(null)
-    setQuestions([])
-    setCopyOutput(null)
+    setPhase('input')
+    setResult(null)
     setError(null)
   }
-
-  const showTerminal = status !== 'input'
-  const showOutput = status === 'complete' && copyOutput
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Hero */}
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Email copy that{' '}
-          <span className="text-primary">actually works</span>
+          Email Copy That{' '}
+          <span className="text-primary">Actually Works</span>
         </h1>
         <p className="mt-3 text-lg text-muted-foreground">
-          Answer a few questions. Get copy that sounds like you wrote it.
+          Drop your URL. Pick a type. Get copy in seconds.
         </p>
       </div>
 
-      {/* Input Form - only show when in input status */}
-      {status === 'input' && (
+      {/* Progress - show during pipeline */}
+      {phase !== 'input' && phase !== 'error' && (
+        <PhaseProgress phase={phase} timing={result?.timing} />
+      )}
+
+      {/* Input Form */}
+      {phase === 'input' && (
         <Card className="border-2">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2">
@@ -314,89 +364,86 @@ export default function HomePage() {
               What are you writing?
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Company Name */}
+          <CardContent className="space-y-5">
+            {/* Website URL - first because it's most important */}
             <div className="space-y-2">
-              <Label htmlFor="company_name">
-                Company / Brand Name
-                <span className="text-destructive ml-1">*</span>
+              <Label htmlFor="website_url" className="flex items-center justify-between">
+                <span>
+                  Your Website <span className="text-destructive">*</span>
+                </span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  We'll extract product info from here
+                </span>
               </Label>
-              <Input
-                id="company_name"
-                placeholder="e.g., G's All Purpose Cleaning"
-                value={formData.company_name}
-                onChange={(e) => handleFieldChange('company_name', e.target.value)}
-              />
-            </div>
-
-            {/* Website URL */}
-            <div className="space-y-2">
-              <Label htmlFor="website_url">
-                Your Website
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                We'll scan it to get accurate product info
-              </p>
               <Input
                 id="website_url"
                 type="url"
                 placeholder="https://yourcompany.com"
                 value={formData.website_url}
-                onChange={(e) => handleFieldChange('website_url', e.target.value)}
+                onChange={(e) => setFormData(prev => ({ ...prev, website_url: e.target.value }))}
+              />
+            </div>
+
+            {/* Company Name */}
+            <div className="space-y-2">
+              <Label htmlFor="company_name">
+                Company Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="company_name"
+                placeholder="e.g., G's All Purpose Cleaning"
+                value={formData.company_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
               />
             </div>
 
             {/* Email Type */}
             <div className="space-y-2">
               <Label>
-                Email Type
-                <span className="text-destructive ml-1">*</span>
+                Email Type <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={formData.email_type}
-                onValueChange={(v) => handleFieldChange('email_type', v)}
+                onValueChange={(v) => setFormData(prev => ({ ...prev, email_type: v as EmailType }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select email type..." />
+                  <SelectValue placeholder="What kind of email?" />
                 </SelectTrigger>
                 <SelectContent>
-                  {emailTypes.map((type) => (
+                  {EMAIL_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs text-muted-foreground">{type.description}</div>
-                      </div>
+                      <span className="font-medium">{type.label}</span>
+                      <span className="text-muted-foreground ml-2">— {type.desc}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Target Audience */}
-            <div className="space-y-2">
-              <Label htmlFor="target_audience">
-                Who is this for?
-                <span className="text-destructive ml-1">*</span>
-              </Label>
-              <Input
-                id="target_audience"
-                placeholder="e.g., Homeowners who care about cleaning but hate the process"
-                value={formData.target_audience}
-                onChange={(e) => handleFieldChange('target_audience', e.target.value)}
-              />
-            </div>
-
-            {/* Sender */}
-            <div className="space-y-2">
-              <Label htmlFor="sender_persona">
-                Who is the email from?
-              </Label>
-              <Input
-                id="sender_persona"
-                placeholder="e.g., Sarah, Head of Customer Success (defaults to company name)"
-                value={formData.sender_persona}
-                onChange={(e) => handleFieldChange('sender_persona', e.target.value)}
-              />
+            {/* Optional fields in a row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sender_name" className="text-muted-foreground">
+                  Sender Name
+                </Label>
+                <Input
+                  id="sender_name"
+                  placeholder="Defaults to company"
+                  value={formData.sender_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sender_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product_focus" className="text-muted-foreground">
+                  Specific Product/Topic
+                </Label>
+                <Input
+                  id="product_focus"
+                  placeholder="Optional focus"
+                  value={formData.product_focus}
+                  onChange={(e) => setFormData(prev => ({ ...prev, product_focus: e.target.value }))}
+                />
+              </div>
             </div>
 
             {/* Start Button */}
@@ -406,43 +453,34 @@ export default function HomePage() {
               className="w-full h-12 text-lg gap-2"
             >
               <Sparkles className="h-5 w-5" />
-              Start Writing
+              Generate Email
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Terminal - show during pipeline */}
-      {showTerminal && (
-        <InteractiveTerminal
-          phase={phase}
-          phaseMessage={phaseMessage}
-          questions={questions}
-          isWaitingForAnswers={status === 'questions'}
-          onAnswersSubmit={handleAnswersSubmit}
-          facts={scanResult?.facts.map(f => f.content) || []}
-          gaps={scanResult?.gaps.map(g => g.description) || []}
-        />
-      )}
-
       {/* Error */}
-      {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-destructive">
-              <strong>Error:</strong> {error}
+      {phase === 'error' && error && (
+        <Card className="border-2 border-destructive/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-destructive">Something went wrong</p>
+                <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              </div>
+              <Button variant="outline" onClick={handleReset} className="gap-2">
+                <RotateCcw className="h-4 w-4" />
+                Try Again
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              Try Again
-            </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Output */}
-      {showOutput && (
+      {phase === 'done' && result && (
         <>
-          <OutputPanel copy={copyOutput} isVisible={true} />
+          <OutputPanel result={result} />
           <div className="flex justify-center">
             <Button variant="outline" onClick={handleReset} className="gap-2">
               <Plus className="h-4 w-4" />
