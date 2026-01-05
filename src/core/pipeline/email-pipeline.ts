@@ -227,28 +227,134 @@ Take a look: gscleaningnyc.com — G's Cleaning`,
 }
 
 // ============================================================================
-// PHASE 2: OUTLINE
+// PHASE 2: OUTLINE (with internal quality filter)
 // ============================================================================
 
+// Step 1: Generate candidate insights
+const CandidatesSchema = z.object({
+  candidates: z.array(z.object({
+    fact: z.string().describe('A specific fact/tip from the website'),
+    source: z.string().describe('Where on the website this came from (product page, FAQ, etc)'),
+    mechanism: z.string().describe('The technical reason or number that makes this credible'),
+    angle: z.string().describe('How we\'d present this'),
+  })).describe('3 candidate insights ranked by quality'),
+})
+
+// Step 2: Quality filter
+const QualityCheckSchema = z.object({
+  evaluations: z.array(z.object({
+    candidate_index: z.number(),
+    passes: z.boolean(),
+    issue: z.string().describe('If fails, what\'s wrong with it'),
+  })),
+  best_index: z.number().describe('Index of the best passing candidate, or -1 if all fail'),
+  reasoning: z.string().describe('Why this one is best'),
+})
+
+// Final outline
 const OutlineSchema = z.object({
-  // What we found
   extracted_fact: z.string().describe('The ONE specific fact/tip/detail from the website we\'re using'),
-  // The beats filled in
   beats: z.array(z.object({
     name: z.string(),
     content: z.string(),
     word_count: z.number(),
   })),
-  // Summary for display
   topic: z.string().describe('Brief topic summary (5 words max)'),
   angle: z.string().describe('The angle/insight (10 words max)'),
 })
 
 export type EmailOutlineResult = z.infer<typeof OutlineSchema>
 
+async function generateCandidates(input: EmailInput, config: EmailTypeConfig) {
+  const result = await generateObject({
+    model: anthropic('claude-sonnet-4-5-20250929'),
+    schema: CandidatesSchema,
+    system: `You find specific, credible insights from website content.
+
+WHAT TO HUNT FOR:
+${config.hunt_for.map(h => `- ${h}`).join('\n')}
+
+REQUIREMENTS FOR EACH CANDIDATE:
+1. Must come from something ACTUALLY on the website (quote the source)
+2. Must include a specific mechanism, number, or technical detail
+3. Must be something an industry insider would share, not obvious advice
+
+DO NOT generate candidates that:
+- Could apply to any product in this category
+- State the obvious
+- Sound like generic marketing advice
+- Would make an expert roll their eyes
+
+Generate 3 candidates, best first. If the website doesn't have good material, say so in the mechanism field.`,
+    prompt: `Find 3 candidate insights for a ${input.emailType} email.
+
+COMPANY: ${input.companyName}
+WEBSITE CONTENT:
+${input.websiteContent.slice(0, 12000)}
+
+Extract specific facts. Include where you found each one.`,
+  })
+  return result.object.candidates
+}
+
+async function filterCandidates(candidates: { fact: string; source: string; mechanism: string; angle: string }[], input: EmailInput) {
+  const candidatesList = candidates
+    .map((c, i) => `${i}. "${c.fact}" (mechanism: ${c.mechanism})`)
+    .join('\n')
+
+  const result = await generateObject({
+    model: openai('gpt-4o-mini'),
+    schema: QualityCheckSchema,
+    system: `You evaluate whether marketing copy ideas sound stupid or smart.
+
+A candidate FAILS if:
+- It states something obvious that anyone would know
+- It sounds condescending or patronizing
+- It would make a professional in the industry cringe
+- It has no specific mechanism/number (vague advice)
+- It sounds like generic AI-generated content
+- A normal person reading it would think "no shit" or "that's dumb"
+
+A candidate PASSES if:
+- It shares genuine insider knowledge
+- It has a specific, credible mechanism or number
+- It would make someone think "huh, I didn't know that"
+- An expert would nod and agree
+
+Be harsh. Most candidates should fail. Only pass genuinely good ones.`,
+    prompt: `Evaluate these candidates for a ${input.emailType} email for ${input.companyName}:
+
+${candidatesList}
+
+Check each one. Pick the best passing candidate, or -1 if they all fail.`,
+  })
+  return result.object
+}
+
 export async function createOutline(input: EmailInput): Promise<EmailOutlineResult> {
   const config = EMAIL_CONFIGS[input.emailType]
   
+  // Step 1: Generate candidates
+  const candidates = await generateCandidates(input, config)
+  
+  // Step 2: Filter for quality
+  const quality = await filterCandidates(candidates, input)
+  
+  // Step 3: Build outline with best candidate (or fallback)
+  let selectedFact: string
+  let selectedAngle: string
+  
+  if (quality.best_index >= 0 && quality.best_index < candidates.length) {
+    const best = candidates[quality.best_index]
+    selectedFact = best.fact
+    selectedAngle = best.angle
+  } else {
+    // All failed - use minimal approach (just confirm signup, no tip)
+    selectedFact = 'No specific insight available'
+    selectedAngle = 'Simple confirmation'
+  }
+  
+  // Step 4: Generate beats with selected insight
   const beatsInstruction = config.beats
     .map((b, i) => `${i + 1}. ${b.name.toUpperCase()} (max ${b.max_words} words): ${b.instruction}`)
     .join('\n')
@@ -260,9 +366,6 @@ export async function createOutline(input: EmailInput): Promise<EmailOutlineResu
 
 THE JOB OF THIS EMAIL:
 ${config.job}
-
-WHAT TO HUNT FOR IN THE WEBSITE:
-${config.hunt_for.map(h => `- ${h}`).join('\n')}
 
 BEATS TO FILL (in order):
 ${beatsInstruction}
@@ -276,19 +379,17 @@ ${config.always.map(a => `- ${a}`).join('\n')}
 EXAMPLE OF GOOD OUTPUT:
 ${config.example}
 
-Find ONE specific fact from the website. Fill each beat with ACTUAL content, not placeholders.
-Each beat has a word limit—respect it. Short is better.`,
+${quality.best_index < 0 ? 'NOTE: No good insight found. Keep the email minimal - just confirm and sign off. Skip the value beat or make it very brief.' : ''}`,
     
     prompt: `Create a ${input.emailType} email outline.
 
 COMPANY: ${input.companyName}
 SENDER: ${input.senderName}
-${input.productOrTopic ? `FOCUS ON: ${input.productOrTopic}` : ''}
 
-WEBSITE CONTENT (find the ONE best fact for this email type):
-${input.websiteContent.slice(0, 12000)}
+USE THIS INSIGHT: "${selectedFact}"
+ANGLE: "${selectedAngle}"
 
-Fill each beat with specific content from this website. No placeholders.`,
+Fill each beat. Use the insight above as your main content.`,
   })
   
   return result.object
