@@ -27,16 +27,6 @@ export interface EmailInput {
   productOrTopic?: string
 }
 
-export interface EmailOutline {
-  topic: string
-  angle: string
-  structure: {
-    opener: string
-    body: string
-    closer: string
-  }
-  facts_to_use: string[]
-}
 
 export interface EmailOutput {
   subject: string
@@ -46,111 +36,192 @@ export interface EmailOutput {
 }
 
 // ============================================================================
-// EMAIL TYPE TEMPLATES
+// EMAIL TYPE DEFINITIONS
 // ============================================================================
 
-const EMAIL_TEMPLATES: Record<EmailType, {
-  structure: string
+interface EmailTypeConfig {
+  // What we're looking for on the website
+  hunt_for: string[]
+  // The ONE job this email must do
+  job: string
+  // Structure with specific beats
+  beats: {
+    name: string
+    instruction: string
+    max_words: number
+  }[]
+  // Example of good output
   example: string
-  rules: string[]
-}> = {
+  // Hard rules
+  never: string[]
+  always: string[]
+}
+
+const EMAIL_CONFIGS: Record<EmailType, EmailTypeConfig> = {
   welcome: {
-    structure: `
-OPENER (1 sentence): Confirm signup. No enthusiasm. Just acknowledge.
-BODY (2-3 sentences): ONE useful tip or fact from the website. Something they can use.
-CLOSER (1 sentence): Simple sign-off with sender name.`,
-    example: `
-You're on the list.
+    hunt_for: [
+      'One specific tip or trick about the product',
+      'A detail most people don\'t know',
+      'How to use something better',
+      'Common mistake to avoid',
+    ],
+    job: 'Make them feel smart for signing up by giving ONE immediately useful thing',
+    beats: [
+      { name: 'confirm', instruction: 'Confirm they signed up. 3-5 words max. No enthusiasm.', max_words: 8 },
+      { name: 'value', instruction: 'Give them ONE useful tip or fact. Specific. Actionable.', max_words: 40 },
+      { name: 'signoff', instruction: 'Just the sender name. Nothing else.', max_words: 5 },
+    ],
+    example: `You're on the list.
 
-Here's something most people don't know: [SPECIFIC TIP FROM WEBSITE].
+Most people wipe too fast. Let cleaning spray sit for 30 seconds—the surfactants need time to break down grease. Try it on your stovetop.
 
-[SENDER NAME]`,
-    rules: [
-      'DO NOT say "welcome to the family" or "we\'re excited"',
-      'DO NOT list multiple products or features',
-      'DO NOT ask them to "explore" or "discover"',
-      'DO include one specific, useful fact',
-      'DO sign off with just the name, no "team" or "family"',
+G's Cleaning`,
+    never: [
+      'Welcome to the family',
+      'We\'re thrilled/excited',
+      'Explore our products',
+      'Your journey begins',
+      'List of features',
+      'Brand introduction',
+      'Multiple things to do',
+    ],
+    always: [
+      'One specific fact they can use TODAY',
+      'Something that makes them feel like an insider',
+      'Sign off with just the name',
     ],
   },
-  
+
   abandoned_cart: {
-    structure: `
-OPENER (1 sentence): Acknowledge they left something. No guilt.
-BODY (2-3 sentences): Address ONE reason they might have hesitated. Use specific product detail.
-CLOSER (1 sentence): Simple path to complete purchase.`,
-    example: `
-You left [PRODUCT] in your cart.
+    hunt_for: [
+      'Return policy or guarantee',
+      'Shipping cost or free shipping threshold',
+      'Product durability or quality detail',
+      'Answer to common hesitation',
+    ],
+    job: 'Address the ONE thing that made them hesitate, not remind them of the cart',
+    beats: [
+      { name: 'acknowledge', instruction: 'Acknowledge they left something. No guilt. State what.', max_words: 12 },
+      { name: 'objection', instruction: 'Address ONE hesitation: shipping, returns, quality, or fit.', max_words: 35 },
+      { name: 'path', instruction: 'Simple way to complete. Link + name.', max_words: 10 },
+    ],
+    example: `You left the leather conditioner in your cart.
 
-If you're wondering about [SPECIFIC CONCERN], here's the thing: [SPECIFIC FACT OR GUARANTEE].
+If you're wondering about the finish—it absorbs completely. No greasy residue. If you don't like it, returns are free for 30 days.
 
-[LINK TO CART] - [SENDER NAME]`,
-    rules: [
-      'DO NOT say "your cart misses you" or "don\'t forget"',
-      'DO NOT create urgency with "limited time" or "hurry"',
-      'DO NOT guilt trip',
-      'DO address a real hesitation (shipping, quality, fit)',
-      'DO include specific product detail from website',
+gscleaningnyc.com/cart — G's Cleaning`,
+    never: [
+      'Your cart misses you',
+      'Don\'t forget',
+      'Limited time',
+      'Hurry',
+      'Still thinking about it',
+      'Running low on stock',
+      'Guilt language',
+    ],
+    always: [
+      'Name the specific product they left',
+      'Address a real concern (shipping, returns, quality)',
+      'Make returning to cart easy',
     ],
   },
-  
+
   nurture: {
-    structure: `
-OPENER (1 sentence): Interesting observation or question.
-BODY (3-4 sentences): Teach ONE thing. Use specific fact/process from website.
-CLOSER (1 sentence): Soft connection to product OR just sign-off.`,
-    example: `
-Most people use [PRODUCT TYPE] wrong.
+    hunt_for: [
+      'How-to information or technique',
+      'Common mistake people make',
+      'Why something works the way it does',
+      'Insider tip from the company',
+    ],
+    job: 'Teach them ONE thing that makes them better at something—product mention optional',
+    beats: [
+      { name: 'hook', instruction: 'Observation or counterintuitive statement. Not a question.', max_words: 15 },
+      { name: 'teach', instruction: 'The actual insight. Specific technique or fact. Why it works.', max_words: 50 },
+      { name: 'signoff', instruction: 'Just the name. Optional: one-line product tie if natural.', max_words: 15 },
+    ],
+    example: `Most people clean windows in direct sunlight. That's backwards.
 
-The trick is [SPECIFIC TECHNIQUE]. [WHY IT WORKS]. [WHAT HAPPENS WHEN YOU DO IT RIGHT].
+Sun heats the glass, solution evaporates before you can wipe, leaves streaks. Clean when it's cloudy or the window's in shade. Start from the top, horizontal strokes.
 
-[SENDER NAME]`,
-    rules: [
-      'DO NOT say "did you know" or "fun fact"',
-      'DO NOT cite vague "studies show" or "experts say"',
-      'DO include specific, actionable information',
-      'DO make the reader feel smarter after reading',
-      'DO keep product mention minimal or absent',
+G's Cleaning`,
+    never: [
+      'Did you know',
+      'Fun fact',
+      'Studies show',
+      'Experts agree',
+      'As a valued customer',
+      'Heavy product pitch',
+    ],
+    always: [
+      'Actually teach something useful',
+      'Be specific—what, how, why',
+      'Reader should feel smarter after reading',
     ],
   },
-  
+
   launch: {
-    structure: `
-OPENER (1 sentence): What's new. Direct.
-BODY (2-3 sentences): Why it matters. ONE key benefit with specific detail.
-CLOSER (1 sentence): Where to get it.`,
-    example: `
-[NEW PRODUCT] is here.
+    hunt_for: [
+      'New product name',
+      'What makes it different from existing products',
+      'Key benefit in specific terms',
+      'When/where available',
+    ],
+    job: 'Tell them what\'s new and the ONE reason they should care',
+    beats: [
+      { name: 'announce', instruction: 'What\'s new. Product name first. Direct.', max_words: 10 },
+      { name: 'why', instruction: 'ONE specific reason this matters to them. Not a feature list.', max_words: 35 },
+      { name: 'get', instruction: 'Where to get it. Link + name.', max_words: 12 },
+    ],
+    example: `Leather conditioner is here.
 
-[WHY IT'S DIFFERENT - SPECIFIC DETAIL]. [WHAT IT DOES FOR THEM].
+Most conditioners leave a film. This one absorbs in 2 minutes, no buffing needed. Your jacket feels like leather, not plastic.
 
-Available now at [LINK]. - [SENDER NAME]`,
-    rules: [
-      'DO NOT say "we\'re excited to announce" or "the wait is over"',
-      'DO NOT list multiple features',
-      'DO NOT use "revolutionary" or "game-changing"',
-      'DO lead with the product name',
-      'DO include one specific differentiator',
+Available at gscleaningnyc.com — G's Cleaning`,
+    never: [
+      'We\'re excited to announce',
+      'The wait is over',
+      'Revolutionary',
+      'Game-changing',
+      'Feature list',
+      'Multiple products at once',
+    ],
+    always: [
+      'Lead with the product name',
+      'One specific differentiator',
+      'Clear path to purchase',
     ],
   },
-  
+
   reengagement: {
-    structure: `
-OPENER (1 sentence): Acknowledge time has passed. No guilt.
-BODY (2-3 sentences): ONE reason to come back. Something new or different.
-CLOSER (1 sentence): Simple action.`,
-    example: `
-It's been a while.
+    hunt_for: [
+      'New product added since they left',
+      'Something that changed or improved',
+      'Seasonal relevance',
+      'One compelling reason to return',
+    ],
+    job: 'Give them ONE concrete reason to come back—not guilt them',
+    beats: [
+      { name: 'time', instruction: 'Acknowledge time passed. Brief. No guilt.', max_words: 8 },
+      { name: 'reason', instruction: 'ONE thing that\'s new or different. Specific.', max_words: 35 },
+      { name: 'action', instruction: 'Low-friction next step. Link + name.', max_words: 12 },
+    ],
+    example: `It's been a while.
 
-Since you were last here, [WHAT'S CHANGED]. [WHY IT MIGHT INTEREST THEM NOW].
+We added a wood polish that doesn't smell like a chemical factory. Cedar and lemon. Works on antiques without stripping the finish.
 
-[LINK] - [SENDER NAME]`,
-    rules: [
-      'DO NOT say "we miss you" or "where have you been"',
-      'DO NOT guilt trip about inactivity',
-      'DO NOT offer desperate discounts',
-      'DO give a concrete reason to return',
-      'DO keep it brief - they\'re already disengaged',
+Take a look: gscleaningnyc.com — G's Cleaning`,
+    never: [
+      'We miss you',
+      'Where have you been',
+      'Is this goodbye',
+      'Last chance',
+      'We noticed you haven\'t',
+      'Desperate discounts',
+    ],
+    always: [
+      'Give a real reason to return',
+      'Something new or changed',
+      'Keep it short—they\'re already disengaged',
     ],
   },
 }
@@ -160,44 +231,64 @@ Since you were last here, [WHAT'S CHANGED]. [WHY IT MIGHT INTEREST THEM NOW].
 // ============================================================================
 
 const OutlineSchema = z.object({
-  topic: z.string().describe('The ONE specific topic to focus on'),
-  angle: z.string().describe('The specific angle or insight to use'),
-  opener: z.string().describe('Exact opener sentence'),
-  body_points: z.array(z.string()).describe('2-3 specific points for the body'),
-  closer: z.string().describe('Exact closer sentence'),
-  facts_used: z.array(z.string()).describe('Specific facts from website being used'),
+  // What we found
+  extracted_fact: z.string().describe('The ONE specific fact/tip/detail from the website we\'re using'),
+  // The beats filled in
+  beats: z.array(z.object({
+    name: z.string(),
+    content: z.string(),
+    word_count: z.number(),
+  })),
+  // Summary for display
+  topic: z.string().describe('Brief topic summary (5 words max)'),
+  angle: z.string().describe('The angle/insight (10 words max)'),
 })
 
-export async function createOutline(input: EmailInput): Promise<z.infer<typeof OutlineSchema>> {
-  const template = EMAIL_TEMPLATES[input.emailType]
+export type EmailOutlineResult = z.infer<typeof OutlineSchema>
+
+export async function createOutline(input: EmailInput): Promise<EmailOutlineResult> {
+  const config = EMAIL_CONFIGS[input.emailType]
   
+  const beatsInstruction = config.beats
+    .map((b, i) => `${i + 1}. ${b.name.toUpperCase()} (max ${b.max_words} words): ${b.instruction}`)
+    .join('\n')
+
   const result = await generateObject({
     model: anthropic('claude-sonnet-4-5-20250929'),
     schema: OutlineSchema,
-    system: `You create email outlines. You pick ONE topic and create a specific skeleton.
+    system: `You create email outlines by filling in specific beats.
 
-Return a JSON outline with exact sentences to use. No placeholders like "[PRODUCT]" - use actual content from the website.
+THE JOB OF THIS EMAIL:
+${config.job}
 
-Your outline must follow this structure:
-${template.structure}
+WHAT TO HUNT FOR IN THE WEBSITE:
+${config.hunt_for.map(h => `- ${h}`).join('\n')}
 
-RULES:
-${template.rules.map(r => `- ${r}`).join('\n')}`,
+BEATS TO FILL (in order):
+${beatsInstruction}
+
+NEVER USE:
+${config.never.map(n => `- "${n}"`).join('\n')}
+
+ALWAYS:
+${config.always.map(a => `- ${a}`).join('\n')}
+
+EXAMPLE OF GOOD OUTPUT:
+${config.example}
+
+Find ONE specific fact from the website. Fill each beat with ACTUAL content, not placeholders.
+Each beat has a word limit—respect it. Short is better.`,
     
-    prompt: `Create an outline for a ${input.emailType} email.
+    prompt: `Create a ${input.emailType} email outline.
 
 COMPANY: ${input.companyName}
 SENDER: ${input.senderName}
-${input.productOrTopic ? `TOPIC/PRODUCT: ${input.productOrTopic}` : ''}
+${input.productOrTopic ? `FOCUS ON: ${input.productOrTopic}` : ''}
 
-WEBSITE CONTENT (pick ONE specific thing to focus on):
+WEBSITE CONTENT (find the ONE best fact for this email type):
 ${input.websiteContent.slice(0, 12000)}
 
-Pick the most interesting/useful specific fact from this website for a ${input.emailType} email.
-Create an outline with EXACT sentences, not templates.
-
-EXAMPLE OUTPUT STYLE:
-${template.example}`,
+Fill each beat with specific content from this website. No placeholders.`,
   })
   
   return result.object
@@ -208,52 +299,52 @@ ${template.example}`,
 // ============================================================================
 
 const EmailOutputSchema = z.object({
-  subject: z.string().describe('Email subject line'),
+  subject: z.string().describe('Email subject line - short, specific, no clickbait'),
   body: z.string().describe('Complete email body'),
 })
 
 export async function writeEmail(
-  outline: z.infer<typeof OutlineSchema>,
+  outline: EmailOutlineResult,
   input: EmailInput
 ): Promise<{ subject: string; body: string }> {
-  const template = EMAIL_TEMPLATES[input.emailType]
+  const config = EMAIL_CONFIGS[input.emailType]
   
+  // Assemble the beats into the email structure
+  const beatsContent = outline.beats
+    .map(b => `${b.name.toUpperCase()}: "${b.content}"`)
+    .join('\n')
+
   const result = await generateObject({
     model: openai('gpt-4o'),
     schema: EmailOutputSchema,
-    system: `You write emails from outlines. You DO NOT add anything. You ONLY use what's in the outline.
+    system: `You assemble emails from pre-written beats. Your job is to format them properly, not rewrite them.
 
-STRUCTURE:
-${template.structure}
+THE JOB OF THIS EMAIL:
+${config.job}
 
-RULES:
-${template.rules.map(r => `- ${r}`).join('\n')}
+EXAMPLE OF GOOD OUTPUT:
+${config.example}
 
-ADDITIONAL RULES:
-- MAX 5 sentences total
-- NO em dashes (—)
-- NO exclamation marks except maybe one
-- NO "we're thrilled/excited/delighted"
-- NO "designed with your needs in mind"
-- NO "as a valued customer"
+NEVER USE:
+${config.never.map(n => `- "${n}"`).join('\n')}
+
+FORMATTING RULES:
+- Use the beat content as-is, just format into paragraphs
+- Add line breaks between beats
+- NO em dashes (—), use commas instead
+- NO exclamation marks
 - Sign off with just: ${input.senderName}
+- Subject line: short (3-6 words), specific to the content, no clickbait`,
 
-Return ONLY the email. No explanation.`,
+    prompt: `Assemble this ${input.emailType} email from the beats below.
 
-    prompt: `Write the email from this outline.
+BEATS (use these exactly, just format them):
+${beatsContent}
 
-OUTLINE:
-- Topic: ${outline.topic}
-- Angle: ${outline.angle}
-- Opener: ${outline.opener}
-- Body points: ${outline.body_points.join(' | ')}
-- Closer: ${outline.closer}
-- Facts used: ${outline.facts_used.join(' | ')}
+FACT BEING USED: ${outline.extracted_fact}
 
-COMPANY: ${input.companyName}
-SENDER: ${input.senderName}
-
-Write the complete email. Use the outline exactly. Don't add anything.`,
+Format into a clean email. Don't add content. Don't embellish.
+Subject line should reference the specific topic: "${outline.topic}"`,
   })
   
   return result.object
@@ -332,7 +423,12 @@ Keep the same facts and structure. Just adjust length/tone.`,
 // ============================================================================
 
 export interface PipelineResult {
-  outline: z.infer<typeof OutlineSchema>
+  outline: {
+    topic: string
+    angle: string
+    extracted_fact: string
+    facts_used: string[]
+  }
   email: EmailOutput
   phases: {
     outline: number
@@ -344,11 +440,11 @@ export interface PipelineResult {
 export async function runEmailPipeline(input: EmailInput): Promise<PipelineResult> {
   const startOutline = Date.now()
   
-  // Phase 2: Create outline
+  // Phase 2: Create outline with beats
   const outline = await createOutline(input)
   const outlineTime = Date.now() - startOutline
   
-  // Phase 3: Write email
+  // Phase 3: Write email from beats
   const startWrite = Date.now()
   const { subject, body } = await writeEmail(outline, input)
   const polishedBody = polishEmail(body)
@@ -360,7 +456,12 @@ export async function runEmailPipeline(input: EmailInput): Promise<PipelineResul
   const variantsTime = Date.now() - startVariants
   
   return {
-    outline,
+    outline: {
+      topic: outline.topic,
+      angle: outline.angle,
+      extracted_fact: outline.extracted_fact,
+      facts_used: [outline.extracted_fact],
+    },
     email: {
       subject,
       body: polishedBody,
