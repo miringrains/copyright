@@ -283,7 +283,10 @@ export default function HomePage() {
       {/* Terminal - show during pipeline */}
       {phase !== 'input' && (
         <SimpleTerminal 
-          phase={phase} 
+          phase={phase}
+          websiteUrl={formData.website_url}
+          companyName={formData.company_name}
+          emailType={formData.email_type}
           outline={result?.outline} 
           error={error}
           timing={result?.timing}

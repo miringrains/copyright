@@ -13,13 +13,15 @@ type Phase = 'idle' | 'scraping' | 'outlining' | 'writing' | 'done' | 'error'
 
 interface TerminalLine {
   id: string
-  type: 'system' | 'info' | 'success' | 'error' | 'data'
+  type: 'command' | 'output' | 'success' | 'error' | 'dim'
   content: string
-  delay?: number
 }
 
 interface SimpleTerminalProps {
   phase: Phase
+  websiteUrl?: string
+  companyName?: string
+  emailType?: string
   outline?: {
     topic: string
     angle: string
@@ -34,10 +36,44 @@ interface SimpleTerminalProps {
 }
 
 // ============================================================================
-// TYPEWRITER HOOK
+// PROCESSING INDICATOR
 // ============================================================================
 
-function useTypewriter(text: string, speed: number = 20, startDelay: number = 0) {
+function ProcessingDots() {
+  return (
+    <span className="inline-flex gap-0.5 ml-1">
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          className="w-1 h-1 rounded-full bg-orange-400"
+          animate={{ opacity: [0.2, 1, 0.2] }}
+          transition={{ 
+            duration: 1.2,
+            repeat: Infinity,
+            delay: i * 0.2,
+            ease: 'easeInOut'
+          }}
+        />
+      ))}
+    </span>
+  )
+}
+
+// ============================================================================
+// TYPING LINE COMPONENT  
+// ============================================================================
+
+function TypingLine({ 
+  content, 
+  type, 
+  onComplete,
+  isProcessing = false
+}: { 
+  content: string
+  type: TerminalLine['type']
+  onComplete?: () => void
+  isProcessing?: boolean
+}) {
   const [displayedText, setDisplayedText] = useState('')
   const [isComplete, setIsComplete] = useState(false)
 
@@ -45,75 +81,43 @@ function useTypewriter(text: string, speed: number = 20, startDelay: number = 0)
     setDisplayedText('')
     setIsComplete(false)
     
-    if (!text) {
+    if (!content) {
       setIsComplete(true)
+      onComplete?.()
       return
     }
 
     let currentIndex = 0
-    let timeoutId: NodeJS.Timeout
+    const speed = type === 'command' ? 12 : 8 // Commands type slower
 
-    const startTyping = () => {
-      const typeNextChar = () => {
-        if (currentIndex < text.length) {
-          setDisplayedText(text.slice(0, currentIndex + 1))
-          currentIndex++
-          // Vary speed slightly for natural feel
-          const variance = Math.random() * 10 - 5
-          timeoutId = setTimeout(typeNextChar, speed + variance)
-        } else {
-          setIsComplete(true)
-        }
+    const typeNextChar = () => {
+      if (currentIndex < content.length) {
+        setDisplayedText(content.slice(0, currentIndex + 1))
+        currentIndex++
+        setTimeout(typeNextChar, speed + Math.random() * 6)
+      } else {
+        setIsComplete(true)
+        // Small delay before calling complete to let the line settle
+        setTimeout(() => onComplete?.(), 100)
       }
-      typeNextChar()
     }
 
-    const delayTimeout = setTimeout(startTyping, startDelay)
-
-    return () => {
-      clearTimeout(delayTimeout)
-      clearTimeout(timeoutId)
-    }
-  }, [text, speed, startDelay])
-
-  return { displayedText, isComplete }
-}
-
-// ============================================================================
-// TYPING LINE COMPONENT
-// ============================================================================
-
-function TypingLine({ 
-  content, 
-  type, 
-  onComplete,
-  startDelay = 0 
-}: { 
-  content: string
-  type: TerminalLine['type']
-  onComplete?: () => void
-  startDelay?: number
-}) {
-  const { displayedText, isComplete } = useTypewriter(content, 15, startDelay)
-
-  useEffect(() => {
-    if (isComplete && onComplete) {
-      onComplete()
-    }
-  }, [isComplete, onComplete])
+    const timeout = setTimeout(typeNextChar, 50)
+    return () => clearTimeout(timeout)
+  }, [content, type, onComplete])
 
   const getLineStyle = () => {
     switch (type) {
-      case 'system':
+      case 'command':
         return 'text-orange-400'
-      case 'info':
-        return 'text-zinc-500'
+      case 'output':
+        return 'text-zinc-300'
       case 'success':
-        return 'text-emerald-400 font-medium'
+        return 'text-emerald-400'
       case 'error':
         return 'text-red-400'
-      case 'data':
-        return 'text-zinc-400'
+      case 'dim':
+        return 'text-zinc-500'
       default:
         return 'text-zinc-400'
     }
@@ -121,48 +125,14 @@ function TypingLine({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ 
-        type: 'spring',
-        stiffness: 500,
-        damping: 30,
-        mass: 0.8
-      }}
+      initial={{ opacity: 0, x: -4 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={`leading-relaxed ${getLineStyle()}`}
     >
+      {type === 'command' && <span className="text-zinc-500 mr-2">$</span>}
       {displayedText}
-      {!isComplete && (
-        <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
-      )}
-    </motion.div>
-  )
-}
-
-// ============================================================================
-// CURSOR COMPONENT
-// ============================================================================
-
-function BlinkingCursor() {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex items-center h-5"
-    >
-      <motion.span
-        animate={{ opacity: [1, 0] }}
-        transition={{ 
-          duration: 0.8, 
-          repeat: Infinity, 
-          repeatType: 'reverse',
-          ease: 'easeInOut'
-        }}
-        className="text-orange-400 text-lg"
-      >
-        ▌
-      </motion.span>
+      {!isComplete && isProcessing && <ProcessingDots />}
     </motion.div>
   )
 }
@@ -171,18 +141,27 @@ function BlinkingCursor() {
 // TERMINAL COMPONENT
 // ============================================================================
 
-export function SimpleTerminal({ phase, outline, error, timing }: SimpleTerminalProps) {
+export function SimpleTerminal({ 
+  phase, 
+  websiteUrl,
+  companyName,
+  emailType,
+  outline, 
+  error, 
+  timing 
+}: SimpleTerminalProps) {
   const [lines, setLines] = useState<TerminalLine[]>([])
-  const [isTyping, setIsTyping] = useState(false)
   const [typingQueue, setTypingQueue] = useState<TerminalLine[]>([])
   const [currentTypingLine, setCurrentTypingLine] = useState<TerminalLine | null>(null)
+  const [isTyping, setIsTyping] = useState(false)
+  const [showProcessing, setShowProcessing] = useState(false)
   
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevPhaseRef = useRef<Phase>('idle')
 
   const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
-  // Auto-scroll to bottom with smooth behavior
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -192,39 +171,40 @@ export function SimpleTerminal({ phase, outline, error, timing }: SimpleTerminal
     }
   }, [lines, currentTypingLine])
 
-  // Process typing queue
+  // Process queue
   useEffect(() => {
     if (!isTyping && typingQueue.length > 0) {
       const [next, ...rest] = typingQueue
       setCurrentTypingLine(next)
       setTypingQueue(rest)
       setIsTyping(true)
+      // Show processing dots on last line of a batch if we're still processing
+      setShowProcessing(rest.length === 0 && phase !== 'done' && phase !== 'error')
     }
-  }, [isTyping, typingQueue])
+  }, [isTyping, typingQueue, phase])
 
-  // Handle typing completion
   const handleTypingComplete = useCallback(() => {
     if (currentTypingLine) {
       setLines(prev => [...prev, currentTypingLine])
       setCurrentTypingLine(null)
       setIsTyping(false)
+      setShowProcessing(false)
     }
   }, [currentTypingLine])
 
-  // Queue lines to type
   const queueLines = useCallback((newLines: Omit<TerminalLine, 'id'>[]) => {
-    const linesWithIds = newLines.map(line => ({
-      ...line,
-      id: genId()
-    }))
+    const linesWithIds = newLines.map(line => ({ ...line, id: genId() }))
     setTypingQueue(prev => [...prev, ...linesWithIds])
   }, [])
 
-  // Handle phase changes
+  // Handle phase changes with real information
   useEffect(() => {
     if (prevPhaseRef.current === phase) return
     const prevPhase = prevPhaseRef.current
     prevPhaseRef.current = phase
+
+    const domain = websiteUrl ? new URL(websiteUrl).hostname : 'website'
+    const type = emailType?.replace('_', ' ') || 'email'
 
     if (phase === 'scraping' && prevPhase === 'idle') {
       setLines([])
@@ -233,195 +213,140 @@ export function SimpleTerminal({ phase, outline, error, timing }: SimpleTerminal
       setIsTyping(false)
       
       queueLines([
-        { type: 'system', content: '> Initializing pipeline...' },
-        { type: 'system', content: '> Scanning website...' },
+        { type: 'command', content: `scrape ${domain}` },
       ])
     } else if (phase === 'outlining') {
       queueLines([
-        { type: 'success', content: '✓ Website scanned' },
-        { type: 'system', content: '> Analyzing content...' },
-        { type: 'system', content: '> Creating outline...' },
+        { type: 'success', content: `✓ scraped ${domain}` },
+        { type: 'command', content: `outline --type="${type}" --company="${companyName || 'company'}"` },
       ])
     } else if (phase === 'writing') {
       const outlineLines: Omit<TerminalLine, 'id'>[] = [
-        { type: 'success', content: '✓ Outline created' },
+        { type: 'success', content: '✓ outline created' },
       ]
       
       if (outline) {
         outlineLines.push(
-          { type: 'data', content: `  Topic: ${outline.topic}` },
-          { type: 'data', content: `  Angle: ${outline.angle}` },
+          { type: 'dim', content: `  topic: "${outline.topic}"` },
+          { type: 'dim', content: `  angle: "${outline.angle}"` },
         )
-        if (outline.facts_used.length > 0) {
-          outlineLines.push(
-            { type: 'data', content: `  Using: ${outline.facts_used[0].slice(0, 60)}...` }
-          )
-        }
       }
       
       outlineLines.push(
-        { type: 'system', content: '> Writing email...' },
-        { type: 'system', content: '> Generating variants...' },
+        { type: 'command', content: `write --variants=3` },
       )
       
       queueLines(outlineLines)
     } else if (phase === 'done') {
       const doneLines: Omit<TerminalLine, 'id'>[] = [
-        { type: 'success', content: '✓ Email generated' },
+        { type: 'success', content: '✓ email generated' },
+        { type: 'success', content: '✓ variants created' },
       ]
       
       if (timing) {
-        const total = Math.round((timing.outline + timing.write + timing.variants) / 1000)
+        const total = ((timing.outline + timing.write + timing.variants) / 1000).toFixed(1)
         doneLines.push(
-          { type: 'info', content: `  Completed in ${total}s` }
+          { type: 'dim', content: `  completed in ${total}s` }
         )
       }
-      
-      doneLines.push(
-        { type: 'success', content: '' },
-        { type: 'success', content: '━━━ Ready ━━━' },
-      )
       
       queueLines(doneLines)
     } else if (phase === 'error') {
       queueLines([
-        { type: 'error', content: `✗ ${error || 'Something went wrong'}` },
+        { type: 'error', content: `✗ error: ${error || 'something went wrong'}` },
       ])
     }
-  }, [phase, outline, timing, error, queueLines])
+  }, [phase, websiteUrl, companyName, emailType, outline, timing, error, queueLines])
 
   const isActive = phase !== 'idle' && phase !== 'done' && phase !== 'error'
-  const showCursor = isActive && !isTyping && !currentTypingLine
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -10, scale: 0.98 }}
-        transition={{ 
-          type: 'spring',
-          stiffness: 400,
-          damping: 25,
-          mass: 0.8
-        }}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
       >
-        <Card className="border bg-zinc-950 text-zinc-100 font-mono text-sm overflow-hidden shadow-2xl">
-          <CardHeader className="py-2.5 px-4 border-b border-zinc-800 bg-zinc-900/80">
+        <Card className="border border-zinc-800 bg-zinc-950 text-zinc-100 font-mono text-[13px] overflow-hidden">
+          <CardHeader className="py-2 px-3 border-b border-zinc-800/50 bg-zinc-900/50">
             <CardTitle className="text-xs font-medium flex items-center gap-2">
-              <motion.div
-                animate={isActive ? { 
-                  rotate: [0, 5, -5, 0],
-                } : {}}
-                transition={{ 
-                  duration: 2, 
-                  repeat: isActive ? Infinity : 0,
-                  ease: 'easeInOut'
-                }}
-              >
-                <Terminal className="h-3.5 w-3.5 text-orange-400" />
-              </motion.div>
-              <span className="text-zinc-300">Copywriter</span>
+              <Terminal className="h-3.5 w-3.5 text-zinc-500" />
+              <span className="text-zinc-400">copywriter</span>
               
-              <AnimatePresence mode="wait">
-                {phase === 'done' && (
-                  <motion.div
-                    key="done"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ 
-                      type: 'spring',
-                      stiffness: 500,
-                      damping: 25
-                    }}
-                    className="ml-auto"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  </motion.div>
-                )}
-                {phase === 'error' && (
-                  <motion.div
-                    key="error"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    className="ml-auto"
-                  >
-                    <AlertCircle className="h-4 w-4 text-red-400" />
-                  </motion.div>
-                )}
-                {isActive && (
-                  <motion.div
-                    key="active"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="ml-auto flex items-center gap-1.5"
-                  >
-                    <motion.div
-                      className="flex gap-1"
+              <div className="ml-auto flex items-center gap-2">
+                <AnimatePresence mode="wait">
+                  {isActive && (
+                    <motion.span
+                      key="active"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-[10px] text-zinc-500 uppercase tracking-wider"
                     >
-                      {[0, 1, 2].map((i) => (
-                        <motion.div
-                          key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-orange-400"
-                          animate={{ 
-                            opacity: [0.3, 1, 0.3],
-                            scale: [0.8, 1, 0.8]
-                          }}
-                          transition={{ 
-                            duration: 1,
-                            repeat: Infinity,
-                            delay: i * 0.2,
-                            ease: 'easeInOut'
-                          }}
-                        />
-                      ))}
+                      running
+                    </motion.span>
+                  )}
+                  {phase === 'done' && (
+                    <motion.div
+                      key="done"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-[10px] text-emerald-400 uppercase tracking-wider">done</span>
                     </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  )}
+                  {phase === 'error' && (
+                    <motion.div
+                      key="error"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+                      <span className="text-[10px] text-red-400 uppercase tracking-wider">failed</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </CardTitle>
           </CardHeader>
           
           <CardContent className="p-0">
             <div 
               ref={scrollRef}
-              className="h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
+              className="h-[180px] overflow-y-auto"
             >
-              <div className="p-4 space-y-1.5">
+              <div className="p-3 space-y-1">
                 {/* Completed lines */}
                 {lines.map((line) => (
-                  <motion.div
+                  <div
                     key={line.id}
-                    initial={{ opacity: 0.7 }}
-                    animate={{ opacity: 1 }}
                     className={`leading-relaxed ${
-                      line.type === 'system' ? 'text-orange-400' :
-                      line.type === 'success' ? 'text-emerald-400 font-medium' :
+                      line.type === 'command' ? 'text-orange-400' :
+                      line.type === 'success' ? 'text-emerald-400' :
                       line.type === 'error' ? 'text-red-400' :
-                      line.type === 'data' ? 'text-zinc-400' :
-                      'text-zinc-500'
+                      line.type === 'dim' ? 'text-zinc-500' :
+                      'text-zinc-300'
                     }`}
                   >
-                    {line.content || '\u00A0'}
-                  </motion.div>
+                    {line.type === 'command' && <span className="text-zinc-500 mr-2">$</span>}
+                    {line.content}
+                  </div>
                 ))}
                 
-                {/* Currently typing line */}
+                {/* Currently typing */}
                 {currentTypingLine && (
                   <TypingLine
                     content={currentTypingLine.content}
                     type={currentTypingLine.type}
                     onComplete={handleTypingComplete}
+                    isProcessing={showProcessing}
                   />
                 )}
-                
-                {/* Blinking cursor when waiting */}
-                <AnimatePresence>
-                  {showCursor && <BlinkingCursor />}
-                </AnimatePresence>
               </div>
             </div>
           </CardContent>
