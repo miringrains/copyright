@@ -60,20 +60,20 @@ interface EmailTypeConfig {
 const EMAIL_CONFIGS: Record<EmailType, EmailTypeConfig> = {
   welcome: {
     hunt_for: [
-      'One specific tip or trick about the product',
-      'A detail most people don\'t know',
-      'How to use something better',
-      'Common mistake to avoid',
+      'Core value proposition - why this company exists',
+      'What makes their products different from competitors',
+      'A simple, useful tip about the product category (not clinical)',
+      'Social proof or customer love if available',
     ],
-    job: 'Make them feel smart for signing up by giving ONE immediately useful thing',
+    job: 'Make them feel good about signing up and set expectations - warm, brief, genuine',
     beats: [
-      { name: 'confirm', instruction: 'Confirm they signed up. 3-5 words max. No enthusiasm.', max_words: 8 },
-      { name: 'value', instruction: 'Give them ONE useful tip or fact. Specific. Actionable.', max_words: 40 },
-      { name: 'signoff', instruction: 'Just the sender name. Nothing else.', max_words: 5 },
+      { name: 'confirm', instruction: 'Confirm they signed up. Brief and warm, not corporate.', max_words: 10 },
+      { name: 'value', instruction: 'Why they\'ll like being on this list OR one genuinely useful thing. Relatable.', max_words: 35 },
+      { name: 'signoff', instruction: 'Just the sender name.', max_words: 5 },
     ],
-    example: `You're on the list.
+    example: `You're in.
 
-Most people wipe too fast. Let cleaning spray sit for 30 seconds—the surfactants need time to break down grease. Try it on your stovetop.
+We make cleaning products you'll actually want to use. No harsh chemicals, no weird residue, just stuff that works. First email with something useful coming soon.
 
 G's Cleaning`,
     never: [
@@ -84,30 +84,32 @@ G's Cleaning`,
       'List of features',
       'Brand introduction',
       'Multiple things to do',
+      'Clinical or technical facts',
+      'Anything condescending',
     ],
     always: [
-      'One specific fact they can use TODAY',
-      'Something that makes them feel like an insider',
-      'Sign off with just the name',
+      'Sound like a person, not a company',
+      'Set expectations or give a reason they\'ll like being subscribed',
+      'Keep it brief - they just signed up, don\'t overwhelm',
     ],
   },
 
   abandoned_cart: {
     hunt_for: [
-      'Return policy or guarantee',
-      'Shipping cost or free shipping threshold',
-      'Product durability or quality detail',
-      'Answer to common hesitation',
+      'Core value proposition / what makes them different',
+      'Social proof (customer reviews, testimonials, number of customers)',
+      'Key benefit that competitors don\'t offer',
+      'Return policy or guarantee (as reassurance, not main pitch)',
     ],
-    job: 'Address the ONE thing that made them hesitate, not remind them of the cart',
+    job: 'Give them a genuine, non-pushy reason to give it a shot - focus on value, not gimmicks',
     beats: [
-      { name: 'acknowledge', instruction: 'Acknowledge they left something. No guilt. State what.', max_words: 12 },
-      { name: 'objection', instruction: 'Address ONE hesitation: shipping, returns, quality, or fit.', max_words: 35 },
-      { name: 'path', instruction: 'Simple way to complete. Link + name.', max_words: 10 },
+      { name: 'invite', instruction: 'Warm invitation to try it. No guilt. Customer-focused.', max_words: 15 },
+      { name: 'value', instruction: 'The real reason to buy - USP or social proof. Relatable, not clinical.', max_words: 30 },
+      { name: 'path', instruction: 'Simple link + name.', max_words: 10 },
     ],
-    example: `You left the leather conditioner in your cart.
+    example: `We'd love for you to give G's Cleaning a shot.
 
-If you're wondering about the finish—it absorbs completely. No greasy residue. If you don't like it, returns are free for 30 days.
+Many of our customers have permanently switched from chemical-heavy brands. Gentle on surfaces, tough on grime, and you'll actually want to use it.
 
 gscleaningnyc.com/cart — G's Cleaning`,
     never: [
@@ -118,30 +120,34 @@ gscleaningnyc.com/cart — G's Cleaning`,
       'Still thinking about it',
       'Running low on stock',
       'Guilt language',
+      'Weird specific facts about the founder',
+      'Clinical/technical mechanisms',
+      'Anything that sounds like a gimmick',
     ],
     always: [
-      'Name the specific product they left',
-      'Address a real concern (shipping, returns, quality)',
-      'Make returning to cart easy',
+      'Focus on value to the customer, not company facts',
+      'Use social proof if available (other customers)',
+      'State the core benefit simply',
+      'Sound like a human invitation, not a sales pitch',
     ],
   },
 
   nurture: {
     hunt_for: [
-      'How-to information or technique',
-      'Common mistake people make',
-      'Why something works the way it does',
-      'Insider tip from the company',
+      'Practical tip related to their product category',
+      'Common problem their customers face',
+      'Simple advice that\'s actually helpful',
+      'Something that positions them as knowledgeable, not salesy',
     ],
-    job: 'Teach them ONE thing that makes them better at something—product mention optional',
+    job: 'Be genuinely helpful - share something useful that builds trust',
     beats: [
-      { name: 'hook', instruction: 'Observation or counterintuitive statement. Not a question.', max_words: 15 },
-      { name: 'teach', instruction: 'The actual insight. Specific technique or fact. Why it works.', max_words: 50 },
-      { name: 'signoff', instruction: 'Just the name. Optional: one-line product tie if natural.', max_words: 15 },
+      { name: 'hook', instruction: 'A relatable observation or common problem. Conversational.', max_words: 15 },
+      { name: 'help', instruction: 'Actually useful advice. Simple, practical, not clinical.', max_words: 45 },
+      { name: 'signoff', instruction: 'Just the name. Maybe a soft product mention if natural.', max_words: 15 },
     ],
-    example: `Most people clean windows in direct sunlight. That's backwards.
+    example: `Quick tip if you clean a lot.
 
-Sun heats the glass, solution evaporates before you can wipe, leaves streaks. Clean when it's cloudy or the window's in shade. Start from the top, horizontal strokes.
+Spray and wait 20-30 seconds before wiping. Gives the cleaner time to actually break things down instead of just pushing grime around. Works especially well on stovetops.
 
 G's Cleaning`,
     never: [
@@ -151,32 +157,34 @@ G's Cleaning`,
       'Experts agree',
       'As a valued customer',
       'Heavy product pitch',
+      'Overly technical explanations',
+      'Condescending tone',
     ],
     always: [
-      'Actually teach something useful',
-      'Be specific—what, how, why',
-      'Reader should feel smarter after reading',
+      'Sound like helpful advice from a friend',
+      'Keep it practical and actionable',
+      'Don\'t oversell - just be useful',
     ],
   },
 
   launch: {
     hunt_for: [
-      'New product name',
-      'What makes it different from existing products',
-      'Key benefit in specific terms',
+      'What the new product/feature is',
+      'The main benefit for customers',
+      'What problem it solves',
       'When/where available',
     ],
-    job: 'Tell them what\'s new and the ONE reason they should care',
+    job: 'Announce what\'s new and why they\'d want it - direct, not hype-y',
     beats: [
-      { name: 'announce', instruction: 'What\'s new. Product name first. Direct.', max_words: 10 },
-      { name: 'why', instruction: 'ONE specific reason this matters to them. Not a feature list.', max_words: 35 },
+      { name: 'announce', instruction: 'What\'s new. Clear and direct.', max_words: 12 },
+      { name: 'benefit', instruction: 'Why they\'d want it. Focus on their life, not product features.', max_words: 30 },
       { name: 'get', instruction: 'Where to get it. Link + name.', max_words: 12 },
     ],
-    example: `Leather conditioner is here.
+    example: `We just added a leather conditioner.
 
-Most conditioners leave a film. This one absorbs in 2 minutes, no buffing needed. Your jacket feels like leather, not plastic.
+If you've got leather furniture, jackets, or car seats, this keeps them soft without leaving that greasy film most conditioners leave.
 
-Available at gscleaningnyc.com — G's Cleaning`,
+Check it out: gscleaningnyc.com — G's Cleaning`,
     never: [
       'We\'re excited to announce',
       'The wait is over',
@@ -184,32 +192,33 @@ Available at gscleaningnyc.com — G's Cleaning`,
       'Game-changing',
       'Feature list',
       'Multiple products at once',
+      'Hype language',
     ],
     always: [
-      'Lead with the product name',
-      'One specific differentiator',
-      'Clear path to purchase',
+      'Be direct about what\'s new',
+      'Focus on benefit to their life',
+      'Make it easy to check out',
     ],
   },
 
   reengagement: {
     hunt_for: [
-      'New product added since they left',
-      'Something that changed or improved',
-      'Seasonal relevance',
-      'One compelling reason to return',
+      'What\'s new or improved since they last visited',
+      'New products or features',
+      'Reason they might want to come back',
+      'Value proposition reminder',
     ],
-    job: 'Give them ONE concrete reason to come back—not guilt them',
+    job: 'Give them a reason to check back in - no guilt, just value',
     beats: [
-      { name: 'time', instruction: 'Acknowledge time passed. Brief. No guilt.', max_words: 8 },
-      { name: 'reason', instruction: 'ONE thing that\'s new or different. Specific.', max_words: 35 },
-      { name: 'action', instruction: 'Low-friction next step. Link + name.', max_words: 12 },
+      { name: 'check_in', instruction: 'Casual acknowledgment. No guilt or desperation.', max_words: 10 },
+      { name: 'reason', instruction: 'What\'s new or why they might want to come back. Genuine.', max_words: 30 },
+      { name: 'action', instruction: 'Simple link. Low pressure.', max_words: 12 },
     ],
-    example: `It's been a while.
+    example: `Hey, quick update.
 
-We added a wood polish that doesn't smell like a chemical factory. Cedar and lemon. Works on antiques without stripping the finish.
+We've added a few new products since you last checked in, including a wood polish that actually smells good (cedar and lemon, not chemicals).
 
-Take a look: gscleaningnyc.com — G's Cleaning`,
+If you're curious: gscleaningnyc.com — G's Cleaning`,
     never: [
       'We miss you',
       'Where have you been',
@@ -217,11 +226,12 @@ Take a look: gscleaningnyc.com — G's Cleaning`,
       'Last chance',
       'We noticed you haven\'t',
       'Desperate discounts',
+      'Guilt language',
     ],
     always: [
-      'Give a real reason to return',
-      'Something new or changed',
-      'Keep it short—they\'re already disengaged',
+      'Sound casual, not desperate',
+      'Give a genuine reason to return',
+      'Keep it low pressure',
     ],
   },
 }
@@ -269,64 +279,64 @@ async function generateCandidates(input: EmailInput, config: EmailTypeConfig) {
   const result = await generateObject({
     model: anthropic('claude-sonnet-4-5-20250929'),
     schema: CandidatesSchema,
-    system: `You find specific, credible insights from website content.
+    system: `You find compelling angles for email copy from website content.
 
 WHAT TO HUNT FOR:
 ${config.hunt_for.map(h => `- ${h}`).join('\n')}
 
 REQUIREMENTS FOR EACH CANDIDATE:
-1. Must come from something ACTUALLY on the website (quote the source)
-2. Must include a specific mechanism, number, or technical detail
-3. Must be something an industry insider would share, not obvious advice
+1. Must be grounded in what the company ACTUALLY offers (from the website)
+2. Must be relatable to a normal customer - not clinical or weird
+3. Should focus on VALUE TO THE CUSTOMER, not company facts
+4. Social proof is good if available (customers, reviews, etc.)
 
 DO NOT generate candidates that:
-- Could apply to any product in this category
-- State the obvious
-- Sound like generic marketing advice
-- Would make an expert roll their eyes
+- Sound clinical or technical in a weird way
+- Focus on the founder/company instead of the customer
+- Would make someone think "that's a weird thing to say"
+- Are overly specific in a way that feels forced
 
-Generate 3 candidates, best first. If the website doesn't have good material, say so in the mechanism field.`,
-    prompt: `Find 3 candidate insights for a ${input.emailType} email.
+Generate 3 candidates, best first. Focus on genuine value propositions.`,
+    prompt: `Find 3 angles for a ${input.emailType} email.
 
 COMPANY: ${input.companyName}
 WEBSITE CONTENT:
 ${input.websiteContent.slice(0, 12000)}
 
-Extract specific facts. Include where you found each one.`,
+Extract genuine value propositions. Think: what would make a customer nod and say "yeah, that's why I'd buy this"?`,
   })
   return result.object.candidates
 }
 
 async function filterCandidates(candidates: { fact: string; source: string; mechanism: string; angle: string }[], input: EmailInput) {
   const candidatesList = candidates
-    .map((c, i) => `${i}. "${c.fact}" (mechanism: ${c.mechanism})`)
+    .map((c, i) => `${i}. "${c.angle}" — based on: "${c.fact}"`)
     .join('\n')
 
   const result = await generateObject({
     model: openai('gpt-4o-mini'),
     schema: QualityCheckSchema,
-    system: `You evaluate whether marketing copy ideas sound stupid or smart.
+    system: `You evaluate whether email copy angles sound natural and relatable.
 
 A candidate FAILS if:
-- It states something obvious that anyone would know
-- It sounds condescending or patronizing
-- It would make a professional in the industry cringe
-- It has no specific mechanism/number (vague advice)
-- It sounds like generic AI-generated content
-- A normal person reading it would think "no shit" or "that's dumb"
+- It sounds weird or off-putting to read as a customer
+- It's about the company/founder when it should be about the customer
+- It makes claims that feel forced or gimmicky
+- It's clinical or technical in a way normal people don't talk
+- A customer would think "that's a strange thing to say in an email"
 
 A candidate PASSES if:
-- It shares genuine insider knowledge
-- It has a specific, credible mechanism or number
-- It would make someone think "huh, I didn't know that"
-- An expert would nod and agree
+- It sounds like something a real company would naturally say
+- It focuses on value to the customer
+- It's relatable - you could imagine receiving this email
+- It uses social proof or genuine benefits, not gimmicks
 
-Be harsh. Most candidates should fail. Only pass genuinely good ones.`,
-    prompt: `Evaluate these candidates for a ${input.emailType} email for ${input.companyName}:
+Think: "Would I find this email weird if I received it?" If yes, fail it.`,
+    prompt: `Evaluate these email angles for ${input.companyName}:
 
 ${candidatesList}
 
-Check each one. Pick the best passing candidate, or -1 if they all fail.`,
+Pick the most natural, relatable one. Fail anything that sounds off.`,
   })
   return result.object
 }
