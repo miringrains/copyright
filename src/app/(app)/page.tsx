@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles, Loader2, Plus, RotateCcw, Clock, FileText, PenTool, Wand2 } from 'lucide-react'
+import { Sparkles, Plus, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SimpleTerminal } from '@/components/features/pipeline/simple-terminal'
 
 // ============================================================================
 // TYPES
@@ -54,77 +55,6 @@ const EMAIL_TYPES: { value: EmailType; label: string; desc: string }[] = [
   { value: 'reengagement', label: 'Re-engagement', desc: 'Win back inactive users' },
 ]
 
-// ============================================================================
-// PROGRESS DISPLAY
-// ============================================================================
-
-function PhaseProgress({ phase, timing }: { phase: Phase; timing?: EmailResult['timing'] }) {
-  const phases = [
-    { id: 'scraping', label: 'Scan Website', icon: FileText },
-    { id: 'outlining', label: 'Create Outline', icon: PenTool },
-    { id: 'writing', label: 'Write Email', icon: Wand2 },
-  ]
-
-  const getPhaseStatus = (phaseId: string) => {
-    const order = ['scraping', 'outlining', 'writing', 'done']
-    const currentIndex = order.indexOf(phase)
-    const phaseIndex = order.indexOf(phaseId)
-    
-    if (phaseIndex < currentIndex) return 'complete'
-    if (phaseIndex === currentIndex) return 'active'
-    return 'pending'
-  }
-
-  return (
-    <Card className="border-2 border-primary/30">
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between gap-4">
-          {phases.map((p, i) => {
-            const status = getPhaseStatus(p.id)
-            const Icon = p.icon
-            
-            return (
-              <div key={p.id} className="flex items-center gap-3 flex-1">
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center
-                  ${status === 'complete' ? 'bg-primary text-primary-foreground' : ''}
-                  ${status === 'active' ? 'bg-primary/20 text-primary border-2 border-primary' : ''}
-                  ${status === 'pending' ? 'bg-muted text-muted-foreground' : ''}
-                `}>
-                  {status === 'active' ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Icon className="h-5 w-5" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${
-                    status === 'pending' ? 'text-muted-foreground' : ''
-                  }`}>
-                    {p.label}
-                  </p>
-                  {status === 'complete' && timing && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {p.id === 'scraping' && 'Done'}
-                      {p.id === 'outlining' && `${Math.round(timing.outline / 1000)}s`}
-                      {p.id === 'writing' && `${Math.round((timing.write + timing.variants) / 1000)}s`}
-                    </p>
-                  )}
-                </div>
-                {i < phases.length - 1 && (
-                  <div className={`h-0.5 w-8 ${
-                    getPhaseStatus(phases[i + 1].id) !== 'pending' ? 'bg-primary' : 'bg-muted'
-                  }`} />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 // ============================================================================
 // OUTPUT DISPLAY
@@ -350,9 +280,14 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Progress - show during pipeline */}
-      {phase !== 'input' && phase !== 'error' && (
-        <PhaseProgress phase={phase} timing={result?.timing} />
+      {/* Terminal - show during pipeline */}
+      {phase !== 'input' && (
+        <SimpleTerminal 
+          phase={phase} 
+          outline={result?.outline} 
+          error={error}
+          timing={result?.timing}
+        />
       )}
 
       {/* Input Form */}
@@ -459,22 +394,14 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Error */}
-      {phase === 'error' && error && (
-        <Card className="border-2 border-destructive/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-destructive">Something went wrong</p>
-                <p className="text-sm text-muted-foreground mt-1">{error}</p>
-              </div>
-              <Button variant="outline" onClick={handleReset} className="gap-2">
-                <RotateCcw className="h-4 w-4" />
-                Try Again
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Error - reset button */}
+      {phase === 'error' && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={handleReset} className="gap-2">
+            <RotateCcw className="h-4 w-4" />
+            Try Again
+          </Button>
+        </div>
       )}
 
       {/* Output */}
