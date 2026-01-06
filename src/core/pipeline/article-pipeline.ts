@@ -133,7 +133,7 @@ async function generateTopics(
   const result = await generateObject({
     model: anthropic('claude-sonnet-4-5-20250929'),
     schema: z.object({
-      topics: z.array(TopicSuggestionSchema).min(5).max(10),
+      topics: z.array(TopicSuggestionSchema),
     }),
     system: `You generate article topic ideas for businesses.
 

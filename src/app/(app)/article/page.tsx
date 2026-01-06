@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Plus, RotateCcw, Trash2, Link, Download, Copy, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,85 @@ interface FormData {
 }
 
 // ============================================================================
+// DISCOVERY TERMINAL
+// ============================================================================
+
+function DiscoveryTerminal({ websiteUrl }: { websiteUrl: string }) {
+  const [lines, setLines] = useState<string[]>([])
+  const domain = websiteUrl ? new URL(websiteUrl).hostname : 'site'
+  
+  useEffect(() => {
+    const steps = [
+      `$ curl -s "${websiteUrl}"`,
+      `  → connecting to ${domain}...`,
+      `  → downloading page content...`,
+      `  ✓ received 47.2KB`,
+      ``,
+      `$ analyze --extract-industry`,
+      `  → parsing HTML structure...`,
+      `  → identifying business context...`,
+      `  → mapping content gaps...`,
+      `  ✓ industry detected`,
+      ``,
+      `$ generate --topics --count=7`,
+      `  → cross-referencing with existing blog...`,
+      `  → finding unique angles...`,
+      `  → ranking by search potential...`,
+    ]
+    
+    let i = 0
+    const interval = setInterval(() => {
+      if (i < steps.length) {
+        setLines(prev => [...prev, steps[i]])
+        i++
+      }
+    }, 120)
+    
+    return () => clearInterval(interval)
+  }, [websiteUrl, domain])
+  
+  return (
+    <div className="rounded-lg overflow-hidden border border-zinc-800 bg-[#0d0d0d] shadow-2xl">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/80 border-b border-zinc-800">
+        <div className="flex gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-red-500/80" />
+          <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+          <div className="w-3 h-3 rounded-full bg-green-500/80" />
+        </div>
+        <div className="flex-1 text-center">
+          <span className="text-xs text-zinc-500 font-mono">
+            discover — running
+          </span>
+        </div>
+      </div>
+      
+      <div className="h-[280px] overflow-y-auto font-mono text-[13px] leading-relaxed p-4 space-y-0.5"
+        style={{ background: 'linear-gradient(180deg, #0d0d0d 0%, #111 100%)' }}
+      >
+        {lines.map((line, i) => (
+          <div 
+            key={i} 
+            className={
+              line.startsWith('$') ? 'text-cyan-400 font-semibold' :
+              line.startsWith('  ✓') ? 'text-emerald-400' :
+              line.startsWith('  →') ? 'text-zinc-400' :
+              'text-zinc-600'
+            }
+          >
+            {line || '\u00A0'}
+          </div>
+        ))}
+        <span className="inline-block w-2 h-4 bg-zinc-400 animate-pulse" />
+      </div>
+      
+      <div className="px-4 py-1.5 bg-zinc-900/60 border-t border-zinc-800 text-[10px] text-zinc-500 font-mono">
+        DISCOVERING • {domain}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
 // TOPIC CARD COMPONENT
 // ============================================================================
 
@@ -41,28 +120,28 @@ function TopicCard({
   onClick: () => void
 }) {
   return (
-    <Card 
-      className={`p-4 cursor-pointer transition-all ${
+    <div 
+      className={`p-4 rounded-lg border cursor-pointer transition-all font-mono ${
         isSelected 
-          ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-          : 'hover:border-primary/50 hover:bg-muted/30'
+          ? 'border-cyan-500 bg-cyan-500/10' 
+          : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-900'
       }`}
       onClick={onClick}
     >
-      <div className="font-medium text-base">{topic.title}</div>
-      <div className="text-sm text-muted-foreground mt-1.5">{topic.angle}</div>
+      <div className="font-medium text-base text-zinc-100">{topic.title}</div>
+      <div className="text-sm text-zinc-400 mt-1.5">{topic.angle}</div>
       <div className="flex items-center gap-2 mt-3">
-        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+        <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-cyan-400 font-mono">
           {topic.target_keyword}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-zinc-500">
           {topic.estimated_search_volume} interest
         </span>
       </div>
-      <div className="text-xs text-muted-foreground mt-2 italic">
-        "{topic.why_now}"
+      <div className="text-xs text-zinc-500 mt-2">
+        → {topic.why_now}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -364,14 +443,18 @@ export default function ArticlePage() {
   }
   
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-8">
       {/* Hero */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Article Generator
+      <div className="text-center space-y-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-xs font-mono text-zinc-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          article-generator v1.0
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl font-mono">
+          <span className="text-zinc-400">$</span> generate <span className="text-cyan-400">--article</span>
         </h1>
-        <p className="mt-3 text-lg text-muted-foreground">
-          Drop your URL. We'll find interesting topics and write the article.
+        <p className="text-zinc-500 font-mono text-sm">
+          url in → researched article out
         </p>
       </div>
       
@@ -386,18 +469,12 @@ export default function ArticlePage() {
       )}
       
       {/* Step 1: URL Input */}
-      {step === 'url' && (
-        <Card className="border-2">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              What's your website?
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="website_url">
-                Website URL <span className="text-destructive">*</span>
+      {step === 'url' && !isDiscovering && (
+        <Card className="border border-zinc-800 bg-zinc-950/50">
+          <CardContent className="pt-6 space-y-5">
+            <div className="space-y-3">
+              <Label htmlFor="website_url" className="text-zinc-400 text-sm font-mono">
+                TARGET_URL
               </Label>
               <Input
                 id="website_url"
@@ -405,157 +482,138 @@ export default function ArticlePage() {
                 placeholder="https://yourcompany.com"
                 value={formData.website_url}
                 onChange={(e) => setFormData(prev => ({ ...prev, website_url: e.target.value }))}
-                className="text-lg h-12"
+                className="text-lg h-14 bg-zinc-900 border-zinc-700 font-mono placeholder:text-zinc-600"
               />
-              <p className="text-sm text-muted-foreground">
-                We'll analyze your site to suggest relevant article topics
-              </p>
             </div>
             
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-sm text-red-400 font-mono">error: {error}</p>
             )}
             
             <Button
               onClick={handleDiscoverTopics}
-              disabled={!isUrlValid() || isDiscovering}
-              className="w-full h-12 text-lg gap-2"
+              disabled={!isUrlValid()}
+              className="w-full h-14 text-lg gap-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-mono"
             >
-              {isDiscovering ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Discovering Topics...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-5 w-5" />
-                  Discover Article Ideas
-                </>
-              )}
+              <Sparkles className="h-5 w-5" />
+              run discover --topics
             </Button>
           </CardContent>
         </Card>
       )}
       
+      {/* Discovery Terminal */}
+      {step === 'url' && isDiscovering && (
+        <DiscoveryTerminal websiteUrl={formData.website_url} />
+      )}
+      
       {/* Step 2: Topic Selection */}
       {step === 'topics' && (
         <div className="space-y-6">
-          <Card className="border-2">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Pick a Topic
-                </span>
-                <Button variant="ghost" size="sm" onClick={handleReset}>
-                  Change URL
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                We found {topics.length} article ideas for your site. Pick one:
-              </p>
-              
-              <div className="grid gap-3">
-                {topics.map((topic, i) => (
-                  <TopicCard
-                    key={i}
-                    topic={topic}
-                    isSelected={selectedTopicIndex === i}
-                    onClick={() => setSelectedTopicIndex(i)}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-sm text-zinc-400">
+              <span className="text-emerald-400">✓</span> found {topics.length} topics for {formData.website_url ? new URL(formData.website_url).hostname : 'site'}
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleReset} className="text-zinc-500 hover:text-zinc-300 font-mono text-xs">
+              ← back
+            </Button>
+          </div>
           
-          {/* Options (collapsed by default) */}
+          {/* Topic Grid */}
+          <div className="grid gap-3">
+            {topics.map((topic, i) => (
+              <TopicCard
+                key={i}
+                topic={topic}
+                isSelected={selectedTopicIndex === i}
+                onClick={() => setSelectedTopicIndex(i)}
+              />
+            ))}
+          </div>
+          
+          {/* Options (show when topic selected) */}
           {selectedTopicIndex !== null && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Options
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Word Count</Label>
-                    <Select
-                      value={String(formData.word_count)}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, word_count: Number(v) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="800">~800</SelectItem>
-                        <SelectItem value="1200">~1200</SelectItem>
-                        <SelectItem value="1500">~1500</SelectItem>
-                        <SelectItem value="2000">~2000</SelectItem>
-                        <SelectItem value="2500">~2500</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-sm">Images</Label>
-                    <Select
-                      value={String(formData.image_count)}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, image_count: Number(v) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">None</SelectItem>
-                        <SelectItem value="1">1</SelectItem>
-                        <SelectItem value="2">2</SelectItem>
-                        <SelectItem value="3">3</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-sm">Tone</Label>
-                    <Select
-                      value={formData.tone}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, tone: v as FormData['tone'] }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="conversational">Conversational</SelectItem>
-                        <SelectItem value="formal">Formal</SelectItem>
-                        <SelectItem value="technical">Technical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 space-y-4">
+              <div className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
+                OPTIONS
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono text-zinc-400">WORDS</Label>
+                  <Select
+                    value={String(formData.word_count)}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, word_count: Number(v) }))}
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 font-mono">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="800">~800</SelectItem>
+                      <SelectItem value="1200">~1200</SelectItem>
+                      <SelectItem value="1500">~1500</SelectItem>
+                      <SelectItem value="2000">~2000</SelectItem>
+                      <SelectItem value="2500">~2500</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm">Additional Context (optional)</Label>
-                  <Textarea
-                    placeholder="Any specific points you want covered, data to include, or angle to take..."
-                    value={formData.additional_context}
-                    onChange={(e) => setFormData(prev => ({ ...prev, additional_context: e.target.value }))}
-                    className="min-h-[80px]"
-                  />
+                  <Label className="text-xs font-mono text-zinc-400">IMAGES</Label>
+                  <Select
+                    value={String(formData.image_count)}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, image_count: Number(v) }))}
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 font-mono">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0</SelectItem>
+                      <SelectItem value="1">1</SelectItem>
+                      <SelectItem value="2">2</SelectItem>
+                      <SelectItem value="3">3</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardContent>
-            </Card>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono text-zinc-400">TONE</Label>
+                  <Select
+                    value={formData.tone}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, tone: v as FormData['tone'] }))}
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 font-mono">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="conversational">casual</SelectItem>
+                      <SelectItem value="formal">formal</SelectItem>
+                      <SelectItem value="technical">technical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs font-mono text-zinc-400">CONTEXT (optional)</Label>
+                <Textarea
+                  placeholder="specific points, data, or angle..."
+                  value={formData.additional_context}
+                  onChange={(e) => setFormData(prev => ({ ...prev, additional_context: e.target.value }))}
+                  className="min-h-[60px] bg-zinc-900 border-zinc-700 font-mono text-sm placeholder:text-zinc-600"
+                />
+              </div>
+            </div>
           )}
           
           {/* Generate Button */}
           <Button
             onClick={handleGenerate}
             disabled={selectedTopicIndex === null}
-            className="w-full h-12 text-lg gap-2"
+            className="w-full h-14 text-lg gap-3 bg-cyan-600 hover:bg-cyan-500 text-white font-mono disabled:bg-zinc-800 disabled:text-zinc-500"
           >
             <FileText className="h-5 w-5" />
-            Generate Article
+            run generate --article
           </Button>
         </div>
       )}
