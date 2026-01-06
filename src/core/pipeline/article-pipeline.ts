@@ -386,60 +386,63 @@ async function writeArticle(
   
   const result = await generateText({
     model: openai('gpt-4o'),
-    system: `You are a skilled journalist writing an article.
+    system: `You are a skilled journalist writing a well-formatted article.
 
-RULES:
+FORMATTING RULES:
+- Start with the lede paragraph (no header needed for intro)
+- Use ## for major section headers 
+- Use ### for subsections if needed
+- Use **bold** for key terms on first mention
+- Use bullet points or numbered lists where appropriate
+- Keep paragraphs short (2-4 sentences max)
+- Add blank lines between sections for readability
+
+CONTENT RULES:
 - Follow the outline EXACTLY
-- Each body block becomes one paragraph
 - Cite sources using markdown links: [Source Title](url)
 - Every factual claim needs a source link
 - No invented statistics or claims
-- Declarative sentences: subject first, verb early
-- Natural paragraph breaks
 - Target word count: ${wordCountTarget}
 
-STYLE:
-- ${context.tone_observed} tone
-- Write for: ${context.target_audience}
-- Primary keyword (use naturally): ${keywords.primary}
-- Secondary keywords (sprinkle in): ${keywords.secondary.slice(0, 5).join(', ')}
+IMAGE PLACEHOLDERS:
+- Insert [IMAGE: detailed description of what to show] after sections that would benefit from visuals
+- Be SPECIFIC about what the image should depict based on the content just discussed
+- Example: [IMAGE: Diagram showing the three-step integration process with arrows connecting each phase]
 
-OUTPUT FORMAT:
-Return ONLY the article content in markdown format.
-Do NOT include the title (that's added separately).
-Use ## for section headers where appropriate.
-Leave placeholders like [IMAGE: description] where images should go.`,
-    prompt: `Write the full article following this outline:
+STYLE:
+- ${context.tone_observed} tone for ${context.target_audience}
+- Primary keyword: ${keywords.primary}
+- Secondary keywords: ${keywords.secondary.slice(0, 5).join(', ')}`,
+    prompt: `Write a well-formatted article following this outline:
 
 TITLE: ${topic.title}
 
-LEDE:
+INTRO (Lede + Nut Graf):
 ${outline.lede}
-
-NUT GRAF:
 ${outline.nut_graf}
 
-FRAMING BRIDGE:
+BRIDGE TO BODY:
 ${outline.framing_bridge}
 
-BODY BLOCKS:
+BODY SECTIONS (each becomes a headed section):
 ${outline.body_blocks.map((b, i) => 
-  `${i + 1}. [${b.type.toUpperCase()}] ${b.question_answered}
-   Content direction: ${b.content}
-   ${b.needs_image ? '[NEEDS IMAGE]' : ''}
-   ${b.source_citation ? `Cite: ${b.source_citation}` : ''}`
+  `Section ${i + 1}: "${b.question_answered}"
+   Type: ${b.type}
+   Content: ${b.content}
+   ${b.needs_image ? '→ Add relevant image after this section' : ''}
+   ${b.source_citation ? `Source: ${b.source_citation}` : ''}`
 ).join('\n\n')}
 
 COUNTERBALANCE:
 ${outline.counterbalance}
 
-KICKER:
+CONCLUSION (Kicker):
 ${outline.kicker}
 
-AVAILABLE SOURCES TO CITE:
+SOURCES TO CITE:
 ${sourceLookup || 'None provided - avoid specific claims'}
 
-Write the complete article now.`,
+Write the complete, well-formatted article now. Include 2-3 contextual image placeholders.`,
   })
   
   callbacks.onPhaseChange('write', `Article written: ${result.text.length} chars`)
@@ -453,29 +456,54 @@ Write the complete article now.`,
 async function generateArticleImages(
   article: string,
   topic: TopicSuggestion,
+  outline: ArticleOutline,
   imageCount: number,
   callbacks: ArticlePipelineCallbacks
 ): Promise<{ images: GeneratedImage[]; urls: string[] }> {
   callbacks.onPhaseChange('images', `Generating ${imageCount} images...`)
   
-  // Extract image placeholders from article
+  // Extract image placeholders from article - these have contextual descriptions
   const imagePlaceholders = article.match(/\[IMAGE: ([^\]]+)\]/g) || []
   
-  // Generate prompts for each image
-  const imagePrompts = imagePlaceholders.slice(0, imageCount).map(placeholder => {
+  // Generate prompts based on actual content descriptions
+  const imagePrompts = imagePlaceholders.slice(0, imageCount).map((placeholder, i) => {
     const description = placeholder.replace(/\[IMAGE: |\]/g, '')
+    
+    // Determine best style based on description
+    let style: 'photorealistic' | 'illustration' | 'infographic' | 'diagram' = 'photorealistic'
+    if (description.toLowerCase().includes('diagram') || description.toLowerCase().includes('process') || description.toLowerCase().includes('flow')) {
+      style = 'diagram'
+    } else if (description.toLowerCase().includes('chart') || description.toLowerCase().includes('data') || description.toLowerCase().includes('comparison')) {
+      style = 'infographic'
+    } else if (description.toLowerCase().includes('concept') || description.toLowerCase().includes('abstract')) {
+      style = 'illustration'
+    }
+    
     return {
-      prompt: `Professional blog image for article about "${topic.title}". ${description}. Clean, modern, high-quality.`,
+      prompt: `${description}. For an article titled "${topic.title}". Professional quality, clean composition, suitable for a business blog.`,
       alt_text: description,
-      style: 'photorealistic' as const,
+      style,
     }
   })
   
-  // If not enough placeholders, create generic images
+  // If we need more images, generate from body block content
+  if (imagePrompts.length < imageCount) {
+    const blocksNeedingImages = outline.body_blocks.filter(b => b.needs_image)
+    for (const block of blocksNeedingImages) {
+      if (imagePrompts.length >= imageCount) break
+      imagePrompts.push({
+        prompt: `Visual representation of: ${block.content.slice(0, 150)}. Context: ${block.question_answered}. Professional blog image style.`,
+        alt_text: block.question_answered,
+        style: 'illustration' as const,
+      })
+    }
+  }
+  
+  // Last resort: use topic angle
   while (imagePrompts.length < imageCount) {
     imagePrompts.push({
-      prompt: `Professional blog header image for article about "${topic.title}" in the context of ${topic.angle}. Clean, modern, editorial style.`,
-      alt_text: `Illustration for ${topic.title}`,
+      prompt: `Professional blog header image representing "${topic.angle}". Clean, modern, editorial style suitable for ${topic.target_keyword}.`,
+      alt_text: topic.angle,
       style: 'photorealistic' as const,
     })
   }
@@ -688,6 +716,7 @@ export class ArticlePipeline {
       const images = await generateArticleImages(
         articleContent,
         topic,
+        outline,
         input.imageCount || 2,
         this.callbacks
       )
