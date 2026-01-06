@@ -388,32 +388,31 @@ async function writeArticle(
     model: openai('gpt-4o'),
     system: `You are a skilled journalist writing a well-formatted article.
 
-FORMATTING RULES:
-- Start with the lede paragraph (no header needed for intro)
-- Use ## for major section headers 
-- Use ### for subsections if needed
-- Use **bold** for key terms on first mention
-- Use bullet points or numbered lists where appropriate
-- Keep paragraphs short (2-4 sentences max)
-- Add blank lines between sections for readability
+CRITICAL: DO NOT include the title. Start directly with the opening paragraph.
 
-CONTENT RULES:
-- Follow the outline EXACTLY
-- Cite sources using markdown links: [Source Title](url)
-- Every factual claim needs a source link
-- No invented statistics or claims
-- Target word count: ${wordCountTarget}
+FORMATTING:
+- Start with the lede paragraph immediately (NO title, NO header first)
+- Use ## for section headers (with blank line before and after)
+- Keep paragraphs to 2-3 sentences MAX
+- Add blank lines between ALL paragraphs
+- Use **bold** sparingly for key terms
+
+CONTENT:
+- Follow the outline
+- Cite sources: [Source Name](url)
+- No invented stats
+- Target: ${wordCountTarget} words
 
 IMAGE PLACEHOLDERS:
-- Insert [IMAGE: detailed description of what to show] after sections that would benefit from visuals
-- Be SPECIFIC about what the image should depict based on the content just discussed
-- Example: [IMAGE: Diagram showing the three-step integration process with arrows connecting each phase]
+- Add [IMAGE: simple topic description] between sections
+- Keep descriptions SIMPLE and THEMATIC, not literal
+- Good: [IMAGE: modern office workspace]
+- Bad: [IMAGE: laptop showing a website with charts and graphs]
 
-STYLE:
-- ${context.tone_observed} tone for ${context.target_audience}
-- Primary keyword: ${keywords.primary}
-- Secondary keywords: ${keywords.secondary.slice(0, 5).join(', ')}`,
-    prompt: `Write a well-formatted article following this outline:
+STYLE: ${context.tone_observed} for ${context.target_audience}`,
+    prompt: `Write the article body (NO TITLE - we add it separately).
+
+Start with this opening paragraph:
 
 TITLE: ${topic.title}
 
@@ -462,48 +461,39 @@ async function generateArticleImages(
 ): Promise<{ images: GeneratedImage[]; urls: string[] }> {
   callbacks.onPhaseChange('images', `Generating ${imageCount} images...`)
   
-  // Extract image placeholders from article - these have contextual descriptions
+  // Extract image placeholders
   const imagePlaceholders = article.match(/\[IMAGE: ([^\]]+)\]/g) || []
   
-  // Generate prompts based on actual content descriptions
-  const imagePrompts = imagePlaceholders.slice(0, imageCount).map((placeholder, i) => {
+  // Generate AMBIENT, SUBTLE images - not literal interpretations
+  const imagePrompts = imagePlaceholders.slice(0, imageCount).map((placeholder) => {
     const description = placeholder.replace(/\[IMAGE: |\]/g, '')
     
-    // Determine best style based on description
-    let style: 'photorealistic' | 'illustration' | 'infographic' | 'diagram' = 'photorealistic'
-    if (description.toLowerCase().includes('diagram') || description.toLowerCase().includes('process') || description.toLowerCase().includes('flow')) {
-      style = 'diagram'
-    } else if (description.toLowerCase().includes('chart') || description.toLowerCase().includes('data') || description.toLowerCase().includes('comparison')) {
-      style = 'infographic'
-    } else if (description.toLowerCase().includes('concept') || description.toLowerCase().includes('abstract')) {
-      style = 'illustration'
-    }
-    
     return {
-      prompt: `${description}. For an article titled "${topic.title}". Professional quality, clean composition, suitable for a business blog.`,
+      // Create ambient, professional stock-photo style images
+      prompt: `Professional stock photo. ${description}. 
+        Style: Clean, minimal, modern. Soft natural lighting. 
+        NOT a diagram or infographic. NOT text or UI elements.
+        Think: Unsplash editorial photography. Subtle and ambient.`,
       alt_text: description,
-      style,
+      style: 'photorealistic' as const,
     }
   })
   
-  // If we need more images, generate from body block content
-  if (imagePrompts.length < imageCount) {
-    const blocksNeedingImages = outline.body_blocks.filter(b => b.needs_image)
-    for (const block of blocksNeedingImages) {
-      if (imagePrompts.length >= imageCount) break
-      imagePrompts.push({
-        prompt: `Visual representation of: ${block.content.slice(0, 150)}. Context: ${block.question_answered}. Professional blog image style.`,
-        alt_text: block.question_answered,
-        style: 'illustration' as const,
-      })
-    }
-  }
-  
-  // Last resort: use topic angle
+  // Generate thematic images based on industry if needed
   while (imagePrompts.length < imageCount) {
+    const themes = [
+      'modern office environment with natural light',
+      'professional workspace with laptop and coffee',
+      'business team collaboration scene',
+      'clean desk setup with minimal accessories',
+    ]
+    const theme = themes[imagePrompts.length % themes.length]
+    
     imagePrompts.push({
-      prompt: `Professional blog header image representing "${topic.angle}". Clean, modern, editorial style suitable for ${topic.target_keyword}.`,
-      alt_text: topic.angle,
+      prompt: `Professional stock photo: ${theme}. 
+        Clean, minimal aesthetic. Soft lighting. No text overlays.
+        Unsplash editorial style. Subtle and ambient.`,
+      alt_text: theme,
       style: 'photorealistic' as const,
     })
   }
@@ -543,16 +533,29 @@ async function assembleArticle(
 ): Promise<GeneratedArticle> {
   callbacks.onPhaseChange('assemble', 'Assembling final article...')
   
-  // Replace image placeholders with actual images
+  // Clean up the article content
   let markdown = articleContent
+    // Remove any title the AI might have added
+    .replace(new RegExp(`^#+ ${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n+`, 'i'), '')
+    .replace(new RegExp(`^\\*\\*${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\*\\*\\n+`, 'i'), '')
+    .replace(new RegExp(`^${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n+`, 'i'), '')
+    .trim()
+  
+  // Replace image placeholders with actual images
   const imagePlaceholders = markdown.match(/\[IMAGE: ([^\]]+)\]/g) || []
   
   imagePlaceholders.forEach((placeholder, i) => {
     if (images.urls[i]) {
       const altText = images.images[i]?.alt_text || placeholder.replace(/\[IMAGE: |\]/g, '')
-      markdown = markdown.replace(placeholder, `![${altText}](${images.urls[i]})`)
+      markdown = markdown.replace(placeholder, `\n\n![${altText}](${images.urls[i]})\n\n`)
+    } else {
+      // Remove placeholder if no image
+      markdown = markdown.replace(placeholder, '')
     }
   })
+  
+  // Clean up extra whitespace
+  markdown = markdown.replace(/\n{3,}/g, '\n\n').trim()
   
   // Add title at the beginning
   markdown = `# ${topic.title}\n\n${markdown}`
