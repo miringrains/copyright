@@ -2,11 +2,11 @@
  * Gemini Image Generation Client
  * 
  * Uses gemini-3-pro-image-preview for generating article images
+ * Stores images in Supabase Storage
  */
 
 import { GoogleGenAI, Modality } from '@google/genai'
-import * as fs from 'fs'
-import * as path from 'path'
+import { getServerClient } from '@/infrastructure/supabase/client'
 
 // ============================================================================
 // TYPES
@@ -19,6 +19,7 @@ export interface GeneratedImage {
   mimeType: string
   alt_text: string
   filename: string
+  url?: string
 }
 
 export interface ImageGenerationOptions {
@@ -82,7 +83,8 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Ge
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
           const id = `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-          const filename = `${id}.${part.inlineData.mimeType?.split('/')[1] || 'png'}`
+          const ext = part.inlineData.mimeType?.split('/')[1] || 'png'
+          const filename = `${id}.${ext}`
           
           return {
             id,
@@ -125,22 +127,46 @@ export async function generateArticleImages(
 }
 
 /**
- * Save a generated image to the public directory
- * Returns the public URL path
+ * Upload image to Supabase Storage
+ * Returns the public URL
  */
-export async function saveImageToPublic(image: GeneratedImage): Promise<string> {
-  const publicDir = path.join(process.cwd(), 'public', 'generated-images')
-  
-  // Ensure directory exists
-  if (!fs.existsSync(publicDir)) {
-    fs.mkdirSync(publicDir, { recursive: true })
+export async function uploadImageToStorage(image: GeneratedImage): Promise<string | null> {
+  try {
+    const supabase = getServerClient()
+    
+    // Convert base64 to buffer
+    const buffer = Buffer.from(image.base64, 'base64')
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('article-images')
+      .upload(image.filename, buffer, {
+        contentType: image.mimeType,
+        cacheControl: '3600',
+        upsert: true,
+      })
+    
+    if (error) {
+      console.error('[Gemini] Storage upload error:', error)
+      return null
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('article-images')
+      .getPublicUrl(image.filename)
+    
+    console.log('[Gemini] Image uploaded:', urlData.publicUrl)
+    return urlData.publicUrl
+  } catch (error) {
+    console.error('[Gemini] Upload error:', error)
+    return null
   }
-  
-  const filePath = path.join(publicDir, image.filename)
-  const buffer = Buffer.from(image.base64, 'base64')
-  
-  fs.writeFileSync(filePath, buffer)
-  
-  return `/generated-images/${image.filename}`
 }
 
+/**
+ * Convert image to data URL as fallback
+ */
+export function getImageDataUrl(image: GeneratedImage): string {
+  return `data:${image.mimeType};base64,${image.base64}`
+}

@@ -16,7 +16,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { scrapeUrl } from '@/infrastructure/firecrawl/client'
-import { generateImage, saveImageToPublic, type GeneratedImage } from '@/infrastructure/gemini/client'
+import { generateImage, uploadImageToStorage, getImageDataUrl, type GeneratedImage } from '@/infrastructure/gemini/client'
 import { getKeywordResearch, getCompetitorUrls } from '@/infrastructure/serpapi/client'
 import {
   type ArticleInput,
@@ -130,6 +130,8 @@ async function generateTopics(
     ? `USER-PROVIDED SOURCES:\n${sources.map(s => `- ${s.title}: ${s.content?.slice(0, 500) || s.url}`).join('\n')}`
     : 'No sources provided yet.'
   
+  const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  
   const result = await generateObject({
     model: anthropic('claude-sonnet-4-5-20250929'),
     schema: z.object({
@@ -137,18 +139,23 @@ async function generateTopics(
     }),
     system: `You generate article topic ideas for businesses.
 
+CURRENT DATE: ${currentDate}
+
 RULES:
 - Topics must NOT already exist on their blog
 - Each topic needs a specific angle (not generic)
-- "Why now" must explain current relevance
+- "Why now" must explain current relevance IN ${currentDate}
 - Target keyword should be something people actually search for
 - Focus on topics that would genuinely help their audience
+- All references to time/trends must be current (${currentDate})
 
 Prioritize:
 - Topics that fill gaps in their current content
 - Topics relevant to their specific niche
 - Topics that can incorporate the user's research/sources`,
-    prompt: `INDUSTRY: ${context.industry}
+    prompt: `CURRENT DATE: ${currentDate}
+
+INDUSTRY: ${context.industry}
 COMPANY FOCUS: ${context.company_focus}
 TARGET AUDIENCE: ${context.target_audience}
 
@@ -163,7 +170,8 @@ ${sourceContext}
 Generate 5-10 unique article topic ideas that:
 1. Don't exist on their blog yet
 2. Would serve their audience
-3. Can incorporate available sources/research`,
+3. Are timely and relevant for ${currentDate}
+4. Can incorporate available sources/research`,
   })
   
   callbacks.onPhaseChange('topics', `Generated ${result.object.topics.length} topic ideas`, result.object.topics)
@@ -481,7 +489,9 @@ async function generateArticleImages(
     const image = await generateImage(imagePrompts[i])
     if (image) {
       images.push(image)
-      const url = await saveImageToPublic(image)
+      // Try Supabase storage first, fall back to data URL
+      const storageUrl = await uploadImageToStorage(image)
+      const url = storageUrl || getImageDataUrl(image)
       urls.push(url)
     }
   }
