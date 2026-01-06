@@ -115,19 +115,27 @@ function ArticleOutput({ article }: { article: GeneratedArticle }) {
       
       {/* Article */}
       <Card className="border-2 border-primary/50">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{article.title}</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleDownload}><Download className="h-4 w-4" /></Button>
-              <Button variant="outline" size="sm" onClick={handleCopy}>{copied ? 'Copied!' : <Copy className="h-4 w-4" />}</Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown>{article.markdown}</ReactMarkdown>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={handleDownload}><Download className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" onClick={handleCopy}>{copied ? 'Copied!' : <Copy className="h-4 w-4" />}</Button>
           </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <article className="
+            prose prose-zinc dark:prose-invert max-w-none
+            prose-headings:font-bold prose-headings:tracking-tight
+            prose-h1:text-3xl prose-h1:mb-6 prose-h1:mt-0
+            prose-h2:text-xl prose-h2:mt-10 prose-h2:mb-4 prose-h2:border-b prose-h2:pb-2 prose-h2:border-border
+            prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3
+            prose-p:leading-7 prose-p:mb-4
+            prose-img:rounded-lg prose-img:shadow-md prose-img:my-6
+            prose-hr:my-8 prose-hr:border-border
+            prose-strong:font-semibold
+            prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+          ">
+            <ReactMarkdown>{article.markdown}</ReactMarkdown>
+          </article>
         </CardContent>
       </Card>
     </div>

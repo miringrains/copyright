@@ -386,33 +386,36 @@ async function writeArticle(
   
   const result = await generateText({
     model: openai('gpt-4o'),
-    system: `You are a skilled journalist writing a well-formatted article.
+    system: `You write well-structured articles with clean formatting.
 
-CRITICAL: DO NOT include the title. Start directly with the opening paragraph.
+DO NOT include the article title - we add it separately.
 
-FORMATTING:
-- Start with the lede paragraph immediately (NO title, NO header first)
-- Use ## for section headers (with blank line before and after)
-- Keep paragraphs to 2-3 sentences MAX
-- Add blank lines between ALL paragraphs
-- Use **bold** sparingly for key terms
+STRUCTURE:
+1. Opening paragraph (no header)
+2. ## Section Header
+   - 2-3 short paragraphs
+3. ## Next Section Header  
+   - Content...
+4. ## Conclusion
 
-CONTENT:
-- Follow the outline
-- Cite sources: [Source Name](url)
-- No invented stats
-- Target: ${wordCountTarget} words
+FORMATTING RULES:
+- ## for main sections (NOT ###)
+- Short paragraphs (2-3 sentences)
+- One blank line between paragraphs
+- Two blank lines before each ## header
+- **Bold** only for the first mention of key terms
+- Use --- as a divider before the conclusion section
 
 IMAGE PLACEHOLDERS:
-- Add [IMAGE: simple topic description] between sections
-- Keep descriptions SIMPLE and THEMATIC, not literal
-- Good: [IMAGE: modern office workspace]
-- Bad: [IMAGE: laptop showing a website with charts and graphs]
+Insert [IMAGE: scene description] between major sections. Be SPECIFIC:
+- Good: [IMAGE: professional in business attire working at desk with dual monitors]
+- Good: [IMAGE: team meeting in modern conference room with glass walls]
+- Bad: [IMAGE: business concept] (too vague)
 
-STYLE: ${context.tone_observed} for ${context.target_audience}`,
-    prompt: `Write the article body (NO TITLE - we add it separately).
+Target: ${wordCountTarget} words. Tone: ${context.tone_observed}.`,
+    prompt: `Write the article (NO TITLE).
 
-Start with this opening paragraph:
+Opening:
 
 TITLE: ${topic.title}
 
@@ -464,36 +467,34 @@ async function generateArticleImages(
   // Extract image placeholders
   const imagePlaceholders = article.match(/\[IMAGE: ([^\]]+)\]/g) || []
   
-  // Generate AMBIENT, SUBTLE images - not literal interpretations
+  // Generate SPECIFIC, CONCRETE images
   const imagePrompts = imagePlaceholders.slice(0, imageCount).map((placeholder) => {
     const description = placeholder.replace(/\[IMAGE: |\]/g, '')
     
     return {
-      // Create ambient, professional stock-photo style images
-      prompt: `Professional stock photo. ${description}. 
-        Style: Clean, minimal, modern. Soft natural lighting. 
-        NOT a diagram or infographic. NOT text or UI elements.
-        Think: Unsplash editorial photography. Subtle and ambient.`,
+      prompt: `${description}. 
+Style: Professional photograph, 4K quality, sharp focus, natural lighting.
+Setting: Modern, clean, minimal background.
+Camera: Shot on Canon EOS R5, 85mm lens, f/2.8.
+Do NOT include: text, logos, watermarks, abstract shapes, or surreal elements.`,
       alt_text: description,
       style: 'photorealistic' as const,
     }
   })
   
-  // Generate thematic images based on industry if needed
+  // Fallback: specific business scenes
+  const fallbackScenes = [
+    'Business professional in suit sitting at desk with keyboard, mouse, and monitor. Natural window light. Clean modern office. 4K photograph.',
+    'Two professionals reviewing documents at a conference table. Laptop open. Glass of water. Bright office lighting. Professional photography.',
+    'Hands typing on laptop keyboard with coffee cup nearby. Wood desk surface. Soft natural light from window. Close-up shot. 4K quality.',
+    'Modern open office space with standing desks and plants. Employees working. Natural daylight. Wide angle architectural photography.',
+  ]
+  
   while (imagePrompts.length < imageCount) {
-    const themes = [
-      'modern office environment with natural light',
-      'professional workspace with laptop and coffee',
-      'business team collaboration scene',
-      'clean desk setup with minimal accessories',
-    ]
-    const theme = themes[imagePrompts.length % themes.length]
-    
+    const scene = fallbackScenes[imagePrompts.length % fallbackScenes.length]
     imagePrompts.push({
-      prompt: `Professional stock photo: ${theme}. 
-        Clean, minimal aesthetic. Soft lighting. No text overlays.
-        Unsplash editorial style. Subtle and ambient.`,
-      alt_text: theme,
+      prompt: scene,
+      alt_text: scene.split('.')[0],
       style: 'photorealistic' as const,
     })
   }
@@ -535,10 +536,10 @@ async function assembleArticle(
   
   // Clean up the article content
   let markdown = articleContent
-    // Remove any title the AI might have added
-    .replace(new RegExp(`^#+ ${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n+`, 'i'), '')
-    .replace(new RegExp(`^\\*\\*${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\*\\*\\n+`, 'i'), '')
-    .replace(new RegExp(`^${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n+`, 'i'), '')
+    // Remove any title the AI might have added (various formats)
+    .replace(new RegExp(`^#+ ${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n+`, 'i'), '')
+    .replace(new RegExp(`^\\*\\*${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\*\\*\\s*\\n+`, 'i'), '')
+    .replace(new RegExp(`^${topic.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n+`, 'i'), '')
     .trim()
   
   // Replace image placeholders with actual images
@@ -547,17 +548,22 @@ async function assembleArticle(
   imagePlaceholders.forEach((placeholder, i) => {
     if (images.urls[i]) {
       const altText = images.images[i]?.alt_text || placeholder.replace(/\[IMAGE: |\]/g, '')
-      markdown = markdown.replace(placeholder, `\n\n![${altText}](${images.urls[i]})\n\n`)
+      markdown = markdown.replace(placeholder, `\n\n![${altText}](${images.urls[i]})\n`)
     } else {
-      // Remove placeholder if no image
       markdown = markdown.replace(placeholder, '')
     }
   })
   
-  // Clean up extra whitespace
-  markdown = markdown.replace(/\n{3,}/g, '\n\n').trim()
+  // Ensure proper spacing: two blank lines before ## headers
+  markdown = markdown.replace(/\n*(##)/g, '\n\n\n$1')
   
-  // Add title at the beginning
+  // Ensure --- dividers have proper spacing
+  markdown = markdown.replace(/\n*---\n*/g, '\n\n---\n\n')
+  
+  // Clean up excessive whitespace but keep structure
+  markdown = markdown.replace(/\n{4,}/g, '\n\n\n').trim()
+  
+  // Build final article with proper title formatting
   markdown = `# ${topic.title}\n\n${markdown}`
   
   // Calculate stats
