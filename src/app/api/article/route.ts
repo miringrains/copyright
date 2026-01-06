@@ -12,13 +12,15 @@ import { type GeneratedArticle, type Source, type TopicSuggestion } from '@/lib/
 interface ArticleRequest {
   websiteUrl: string
   blogUrl?: string
-  sources: Source[]
+  sources?: Source[]
   targetKeywords?: string[]
   topic?: string
   selectedTopic?: TopicSuggestion
   wordCountTarget?: number
   imageCount?: number
   tone?: 'formal' | 'conversational' | 'technical'
+  additionalContext?: string
+  autoResearch?: boolean
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -65,6 +67,8 @@ export async function POST(req: NextRequest): Promise<Response> {
             wordCountTarget: input.wordCountTarget ?? 1500,
             imageCount: input.imageCount ?? 2,
             tone: input.tone ?? 'conversational',
+            additionalContext: input.additionalContext,
+            autoResearch: input.autoResearch ?? true,
           },
           input.selectedTopic
         )

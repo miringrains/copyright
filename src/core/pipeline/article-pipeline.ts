@@ -28,6 +28,7 @@ import {
   ArticleOutlineSchema,
   TopicSuggestionSchema,
   IndustryContextSchema,
+  SourceSchema,
 } from '@/lib/schemas/article'
 
 // ============================================================================
@@ -170,44 +171,69 @@ Generate 5-10 unique article topic ideas that:
 }
 
 // ============================================================================
-// PHASE 3: KEYWORD RESEARCH
+// PHASE 3: KEYWORD RESEARCH + AUTO SOURCE DISCOVERY
 // ============================================================================
 
-async function researchKeywords(
+async function researchKeywordsAndSources(
   topic: TopicSuggestion,
   userKeywords: string[],
+  autoResearch: boolean,
   callbacks: ArticlePipelineCallbacks
-): Promise<{ primary: string; secondary: string[]; questions: string[] }> {
+): Promise<{ 
+  primary: string
+  secondary: string[]
+  questions: string[]
+  discoveredSources: Source[]
+}> {
   callbacks.onPhaseChange('keywords', `Researching keywords for: ${topic.title}`)
   
   // Get SerpAPI data
   const serpData = await getKeywordResearch(topic.target_keyword)
   
   // Get competitor URLs for this topic
-  const competitorUrls = await getCompetitorUrls(topic.target_keyword, 3)
+  const competitorUrls = await getCompetitorUrls(topic.target_keyword, 5)
   
-  // Extract keywords from competitors (scrape first few)
+  // Extract keywords from competitors AND gather as sources
   const competitorKeywords: string[] = []
-  for (const url of competitorUrls.slice(0, 2)) {
-    try {
-      const content = await scrapeUrl(url)
-      if (content?.content) {
-        // Simple keyword extraction from competitor content
-        const words = content.content
-          .toLowerCase()
-          .split(/\s+/)
-          .filter(w => w.length > 4 && w.length < 20)
-        const wordFreq = new Map<string, number>()
-        words.forEach(w => wordFreq.set(w, (wordFreq.get(w) || 0) + 1))
-        const topWords = Array.from(wordFreq.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([word]) => word)
-        competitorKeywords.push(...topWords)
+  const discoveredSources: Source[] = []
+  
+  if (autoResearch && competitorUrls.length > 0) {
+    callbacks.onPhaseChange('keywords', `Researching ${competitorUrls.length} sources...`)
+    
+    for (const url of competitorUrls.slice(0, 3)) {
+      try {
+        const content = await scrapeUrl(url)
+        if (content?.content && content.content.length > 500) {
+          // Add as source
+          const title = (content.metadata?.title as string) || new URL(url).hostname
+          discoveredSources.push({
+            url,
+            title,
+            type: 'article',
+            content: content.content.slice(0, 3000), // Limit content size
+          })
+          
+          // Extract keywords
+          const words = content.content
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(w => w.length > 4 && w.length < 20)
+          const wordFreq = new Map<string, number>()
+          words.forEach(w => wordFreq.set(w, (wordFreq.get(w) || 0) + 1))
+          const topWords = Array.from(wordFreq.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([word]) => word)
+          competitorKeywords.push(...topWords)
+        }
+      } catch (e) {
+        console.warn('Failed to scrape source:', url)
       }
-    } catch (e) {
-      console.warn('Failed to scrape competitor:', url)
     }
+    
+    callbacks.onPhaseChange('keywords', `Found ${discoveredSources.length} reference sources`, {
+      sources: discoveredSources.map(s => s.title),
+    })
   }
   
   // Combine all keywords
@@ -230,6 +256,7 @@ async function researchKeywords(
     primary: topic.target_keyword,
     secondary: unique.filter(k => k !== topic.target_keyword.toLowerCase()).slice(0, 15),
     questions: serpData.questions,
+    discoveredSources,
   }
 }
 
@@ -587,12 +614,14 @@ export class ArticlePipeline {
         this.callbacks.onPhaseChange('topics', `Using selected topic: ${topic.title}`)
       } else if (input.topic) {
         // Generate topic from user's input
-        const topics = await generateTopics(context, input.sources, this.callbacks)
+        const sources = input.sources || []
+        const topics = await generateTopics(context, sources, this.callbacks)
         topic = topics.find(t => 
           t.title.toLowerCase().includes(input.topic!.toLowerCase())
         ) || topics[0]
       } else {
-        const topics = await generateTopics(context, input.sources, this.callbacks)
+        const sources = input.sources || []
+        const topics = await generateTopics(context, sources, this.callbacks)
         topic = topics[0]
       }
       
@@ -600,18 +629,36 @@ export class ArticlePipeline {
         throw new Error('No topic available')
       }
       
-      // Phase 3: Keywords
-      const keywords = await researchKeywords(
+      // Phase 3: Keywords + Auto-Research Sources
+      const autoResearch = input.autoResearch !== false // Default true
+      const keywordResult = await researchKeywordsAndSources(
         topic,
         input.targetKeywords || [],
+        autoResearch,
         this.callbacks
       )
+      
+      // Combine user sources with discovered sources
+      const allSources: Source[] = [
+        ...(input.sources || []),
+        ...keywordResult.discoveredSources,
+      ]
+      
+      // Add additional context as a "source" if provided
+      if (input.additionalContext) {
+        allSources.push({
+          url: input.websiteUrl,
+          title: 'User Notes',
+          type: 'other',
+          content: input.additionalContext,
+        })
+      }
       
       // Phase 4: Outline
       const outline = await generateOutline(
         topic,
-        keywords,
-        input.sources,
+        keywordResult,
+        allSources,
         context,
         this.callbacks
       )
@@ -620,8 +667,8 @@ export class ArticlePipeline {
       const articleContent = await writeArticle(
         topic,
         outline,
-        keywords,
-        input.sources,
+        keywordResult,
+        allSources,
         context,
         input.wordCountTarget || 1500,
         this.callbacks
@@ -641,8 +688,8 @@ export class ArticlePipeline {
         outline,
         articleContent,
         images,
-        input.sources,
-        keywords,
+        allSources,
+        keywordResult,
         this.callbacks
       )
       

@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 // TYPES
 // ============================================================================
 
-type ArticlePhase = 'idle' | 'scrape' | 'topics' | 'keywords' | 'outline' | 'write' | 'images' | 'assemble' | 'complete' | 'error'
+type ArticlePhase = 'idle' | 'input' | 'discovering' | 'scrape' | 'topics' | 'keywords' | 'outline' | 'write' | 'images' | 'assemble' | 'complete' | 'error'
 
 interface TerminalLine {
   id: string

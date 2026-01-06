@@ -142,12 +142,16 @@ export type GeneratedArticle = z.infer<typeof GeneratedArticleSchema>
 export const ArticleInputSchema = z.object({
   // Required
   websiteUrl: z.string().describe('The user\'s website to understand industry/context'),
-  sources: z.array(SourceSchema).describe('User-provided research and sources'),
   
   // Optional
+  sources: z.array(SourceSchema).optional().default([]).describe('User-provided research and sources'),
   blogUrl: z.string().optional().describe('Blog URL if different from main site'),
   topic: z.string().optional().describe('Specific topic if user has one'),
   targetKeywords: z.array(z.string()).optional().describe('User-provided keywords'),
+  additionalContext: z.string().optional().describe('Extra context or angle from user'),
+  
+  // Auto-research flag
+  autoResearch: z.boolean().optional().default(true).describe('Auto-discover sources from web search'),
   
   // Preferences
   wordCountTarget: z.number().optional().default(1500).describe('Target word count'),
