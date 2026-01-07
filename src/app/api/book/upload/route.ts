@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseFile } from '@/infrastructure/parsers'
 import { chunkDocument } from '@/infrastructure/chunker/semantic-chunker'
-import { generateEmbeddings } from '@/infrastructure/embeddings/client'
 import { getServerClient } from '@/infrastructure/supabase/client'
 
 /**
  * POST /api/book/upload - Upload and process a document
+ * 
+ * Flow:
+ * 1. Parse document (PDF/DOCX/TXT)
+ * 2. Chunk into ~500 word segments
+ * 3. Store chunks in Supabase
+ * 
+ * Embeddings are generated later during the organize step, not here.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,41 +26,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Book Upload] Processing file: ${file.name} (${file.size} bytes)`)
+    console.log(`[Book Upload] Processing: ${file.name} (${file.size} bytes)`)
 
     // Parse the document
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    const parsed = await parseFile(buffer, file.type, file.name)
-
-    if (!parsed || !parsed.content) {
+    
+    let parsed
+    try {
+      parsed = await parseFile(buffer, file.type, file.name)
+    } catch (parseError) {
+      console.error('[Book Upload] Parse error:', parseError)
       return NextResponse.json(
-        { error: 'Failed to parse document' },
+        { error: `Failed to parse ${file.name}: ${parseError instanceof Error ? parseError.message : 'Unknown error'}` },
         { status: 400 }
       )
     }
 
-    const content = parsed.content
-    console.log(`[Book Upload] Parsed ${content.length} characters`)
+    if (!parsed || !parsed.content || parsed.content.length < 100) {
+      return NextResponse.json(
+        { error: 'Document appears to be empty or could not be read' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`[Book Upload] Extracted ${parsed.content.length} characters`)
 
     // Chunk the document
-    const chunks = chunkDocument(content, file.name)
+    const chunks = chunkDocument(parsed.content, file.name)
     console.log(`[Book Upload] Created ${chunks.length} chunks`)
 
-    // Generate embeddings for all chunks
-    const embeddings = await generateEmbeddings(chunks.map(c => c.content))
-    console.log(`[Book Upload] Generated ${embeddings.length} embeddings`)
-
-    // Store chunks in database if projectId provided
-    if (projectId) {
+    // Store chunks in database
+    if (projectId && chunks.length > 0) {
       const supabase = getServerClient()
 
-      const chunkRecords = chunks.map((chunk, i) => ({
+      const chunkRecords = chunks.map((chunk) => ({
         project_id: projectId,
         content: chunk.content,
-        source_file: chunk.sourceFile,
+        source_file: file.name,
         chunk_index: chunk.index,
-        embedding: JSON.stringify(embeddings[i].embedding),
         metadata: {
           headings: chunk.metadata.headings,
           wordCount: chunk.metadata.wordCount,
@@ -66,8 +76,11 @@ export async function POST(request: NextRequest) {
         .insert(chunkRecords)
 
       if (error) {
-        console.error('[Book Upload] Failed to store chunks:', error)
-        // Continue anyway, we'll return chunk count
+        console.error('[Book Upload] Database error:', error)
+        return NextResponse.json(
+          { error: 'Failed to save document chunks' },
+          { status: 500 }
+        )
       }
     }
 
@@ -86,4 +99,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

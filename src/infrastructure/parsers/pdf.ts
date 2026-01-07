@@ -1,3 +1,5 @@
+import { extractText } from 'unpdf'
+
 export interface ParsedDocument {
   content: string
   metadata: {
@@ -10,22 +12,17 @@ export interface ParsedDocument {
 
 export async function parsePdf(buffer: Buffer): Promise<ParsedDocument> {
   try {
-    // pdf-parse v1.x uses simple function API
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require('pdf-parse')
+    // unpdf is designed for serverless - no canvas required for text extraction
+    const { text, totalPages } = await extractText(buffer, { mergePages: true })
     
-    const data = await pdfParse(buffer)
-    
-    const content = data.text
+    const content = (text as string)
       .replace(/\s+/g, ' ')
       .trim()
     
     return {
       content,
       metadata: {
-        title: data.info?.Title,
-        author: data.info?.Author,
-        pages: data.numpages,
+        pages: totalPages,
         wordCount: content.split(/\s+/).length,
       },
     }
