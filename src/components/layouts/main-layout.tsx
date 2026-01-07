@@ -1,6 +1,6 @@
 'use client'
 
-import { Flame, Github, Moon, Sun, Mail, FileText } from 'lucide-react'
+import { Flame, Github, Moon, Sun, Mail, FileText, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -27,6 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const navItems = [
     { href: '/', label: 'Email', icon: Mail },
     { href: '/article', label: 'Article', icon: FileText },
+    { href: '/book', label: 'Book', icon: BookOpen },
   ]
 
   return (
