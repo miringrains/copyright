@@ -3,32 +3,39 @@ import { getServerClient } from '@/infrastructure/supabase/client'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
-// Direct, practical writing style like Atomic Habits or How to Win Friends
+// Direct, practical writing style - clear and simple
 const WRITING_STYLE = `
-STYLE: Write like James Clear (Atomic Habits) or Dale Carnegie (How to Win Friends).
+STYLE: Write for smart adults who prefer simple language.
 
-DO:
-- Start paragraphs with your main point, not buildup
-- Use specific examples: "Wool shrinks at 140°F" not "wool can shrink in hot water"
-- Mix short punchy sentences with longer explanatory ones
-- Speak directly to the reader using "you"
-- Make every paragraph teach something practical
-- Use numbers and specifics when available
-- Be conversational but authoritative
+WORD CHOICE:
+- Use everyday words. "Important" not "fundamental." "Thousands of years" not "millennia."
+- If a 5th grader wouldn't know the word, find a simpler one.
+- Short words beat long ones. "Use" not "utilize." "Help" not "facilitate."
+- Cut filler phrases: "it's important to note that" → just say the thing.
 
-DON'T:
-- Use "imagine," "picture," or "envision" openings
-- Write purple prose ("timeless textile," "marvel of engineering")
-- Use vague language when specifics exist
-- Add decorative sentences that don't teach anything
-- Sound like you're performing - just explain clearly
+SENTENCE STRUCTURE:
+- Lead with the point. "Wool shrinks in hot water" not "When considering wool care..."
+- One idea per sentence. Break up compound sentences.
+- Mix lengths: short for impact, medium for explanation. Rarely go long.
 
-EXAMPLE OF GOOD STYLE:
-"Wool is one of humanity's oldest textiles. Sheep have been domesticated for their fleece for over 10,000 years. The reason is simple: wool does three things no other natural fiber does as well.
+TONE:
+- Talk to the reader like a friend explaining something useful.
+- Be direct, not formal. "Here's why" not "The reason for this is."
+- Skip the buildup. Don't "set the stage" - just teach.
 
-First, it insulates even when wet. Cotton loses 90% of its insulating ability when damp. Wool retains most of its warmth because the fibers trap air in crimped pockets that water can't easily displace.
+BANNED:
+- "Fundamental," "millennia," "myriad," "plethora," "utilize"
+- "When you think of..." "Consider the fact that..." "It's worth noting..."
+- Any word you'd never say out loud to a friend
 
-Second, it regulates temperature. Wool absorbs up to 30% of its weight in moisture without feeling damp. As it absorbs your sweat, the absorption process actually releases heat, keeping you warm in cold weather. In warm weather, the evaporation reverses, cooling you down."
+GOOD EXAMPLE:
+"Wool has kept humans warm for thousands of years. Over 200 sheep breeds exist, each producing different types of wool.
+
+What makes wool special? Three things.
+
+First, it stays warm when wet. Get cotton wet and it loses almost all its insulation. Wool keeps most of its warmth because the fibers trap air in tiny crimped pockets.
+
+Second, it handles sweat well. Wool absorbs up to 30% of its weight in moisture before it feels damp. That's why wool socks work for hiking—they pull sweat away from your skin."
 `
 
 /**

@@ -15,27 +15,37 @@ const ChapterOutlineSchema = z.object({
   closingPoint: z.string().describe('The practical takeaway to end with'),
 })
 
-// Writing style guide - inspired by Atomic Habits, How to Win Friends
+// Writing style - clear, simple, practical
 const WRITING_STYLE = `
-WRITING RULES:
-1. Be DIRECT. Start paragraphs with your point, not buildup.
-2. NO "imagine," "picture," "envision" - just state the facts.
-3. NO purple prose - no "timeless textile," "marvel of engineering," "delicate dance."
-4. Use CONCRETE examples that teach. "Wool shrinks in hot water because the scales lock together."
-5. Short sentences for impact. Longer ones for explanation. Mix them.
-6. Write like you're explaining to a smart friend, not performing for an audience.
-7. Every paragraph must teach something useful. Cut anything decorative.
-8. Use "you" and "your" to speak directly to the reader.
-9. Cite specific numbers, temperatures, percentages when available.
-10. End sections with practical takeaways, not philosophical musing.
+WORD CHOICE:
+- Use everyday words. "Important" not "fundamental." "Thousands of years" not "millennia."
+- If a 5th grader wouldn't know the word, find a simpler one.
+- Short words beat long ones. "Use" not "utilize." "Help" not "facilitate."
+- Cut filler: "it's important to note" → just say the thing.
 
-BAD: "Imagine wrapping yourself in a blanket so ancient, it once warmed the shoulders of ancient shepherds."
-GOOD: "Wool is one of humanity's oldest textiles. Sheep have been domesticated for their fleece for over 10,000 years."
+SENTENCES:
+- Lead with the point. "Wool shrinks in hot water" not "When considering wool care..."
+- One idea per sentence. Break up long compound sentences.
+- Mix lengths: short for impact, medium for explanation.
 
-BAD: "The story of wool extends into the microscopic realm where each fiber is a marvel of natural engineering."
-GOOD: "Under a microscope, wool fibers have overlapping scales. These scales are why wool shrinks—they lock together when agitated in water."
+TONE:
+- Talk to the reader like a friend explaining something useful.
+- Be direct. "Here's why" not "The reason for this is."
+- Skip buildup. Don't "set the stage" - just teach.
 
-Write to TEACH, not to impress.
+BANNED WORDS/PHRASES:
+- "Fundamental," "millennia," "myriad," "plethora," "utilize," "facilitate"
+- "When you think of..." "Consider the fact that..." "It's worth noting..."
+- "Imagine," "picture," "envision"
+- Any word you wouldn't say out loud to a friend
+
+BAD: "When you think of wool, you're considering a fiber that's been fundamental to human clothing for millennia."
+GOOD: "Wool has kept humans warm for thousands of years."
+
+BAD: "structured with overlapping scales that give wool its unique property: felting"
+GOOD: "covered in tiny scales that lock together when wet—which is why wool shrinks"
+
+Write like you're explaining to a smart friend. Simple words. Clear sentences. Useful information.
 `
 
 /**
