@@ -6,14 +6,37 @@ import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 
 const ChapterOutlineSchema = z.object({
-  hook: z.string().describe('Opening hook - question, fact, or scene'),
+  openingPoint: z.string().describe('The main point to establish in the first paragraph'),
   sections: z.array(z.object({
     title: z.string(),
     keyPoints: z.array(z.string()),
     targetWords: z.number(),
   })),
-  bridge: z.string().describe('Transition to next chapter'),
+  closingPoint: z.string().describe('The practical takeaway to end with'),
 })
+
+// Writing style guide - inspired by Atomic Habits, How to Win Friends
+const WRITING_STYLE = `
+WRITING RULES:
+1. Be DIRECT. Start paragraphs with your point, not buildup.
+2. NO "imagine," "picture," "envision" - just state the facts.
+3. NO purple prose - no "timeless textile," "marvel of engineering," "delicate dance."
+4. Use CONCRETE examples that teach. "Wool shrinks in hot water because the scales lock together."
+5. Short sentences for impact. Longer ones for explanation. Mix them.
+6. Write like you're explaining to a smart friend, not performing for an audience.
+7. Every paragraph must teach something useful. Cut anything decorative.
+8. Use "you" and "your" to speak directly to the reader.
+9. Cite specific numbers, temperatures, percentages when available.
+10. End sections with practical takeaways, not philosophical musing.
+
+BAD: "Imagine wrapping yourself in a blanket so ancient, it once warmed the shoulders of ancient shepherds."
+GOOD: "Wool is one of humanity's oldest textiles. Sheep have been domesticated for their fleece for over 10,000 years."
+
+BAD: "The story of wool extends into the microscopic realm where each fiber is a marvel of natural engineering."
+GOOD: "Under a microscope, wool fibers have overlapping scales. These scales are why wool shrinks—they lock together when agitated in water."
+
+Write to TEACH, not to impress.
+`
 
 /**
  * POST /api/book/[id]/write - Write a specific chapter
@@ -66,7 +89,7 @@ export async function POST(
       .single()
 
     const prevEnding = prevChapter?.content 
-      ? prevChapter.content.split('\n').slice(-5).join('\n')
+      ? prevChapter.content.split('\n').slice(-3).join('\n')
       : null
 
     // Get next chapter title (for bridge)
@@ -94,11 +117,10 @@ export async function POST(
     const outlineResult = await generateObject({
       model: anthropic('claude-sonnet-4-5-20250929'),
       schema: ChapterOutlineSchema,
-      system: `You are planning a chapter for a non-fiction book. 
-Create a detailed outline that will result in an engaging, well-structured chapter.
-Each section should flow naturally into the next.
-The hook should immediately grab attention.
-The bridge should set up the next chapter.`,
+      system: `You are planning a chapter for a practical non-fiction book.
+Create a structure that teaches clearly and directly.
+Each section should cover one main topic with specific, useful information.
+No fluff. No filler. Just clear teaching.`,
       prompt: `BOOK: "${project.title}"
 CHAPTER ${chapterNumber}: "${chapter.title}"
 
@@ -108,7 +130,7 @@ ${nextChapter ? `NEXT CHAPTER IS: "${nextChapter.title}"` : 'This is the final c
 SOURCE MATERIAL:
 ${sourceContent.slice(0, 15000)}
 
-Create an outline for this chapter. Target 2000-3000 words total.`,
+Create an outline. Target 1500-2500 words total. Focus on practical information the reader can use.`,
     })
 
     const outline = outlineResult.object
@@ -117,33 +139,33 @@ Create an outline for this chapter. Target 2000-3000 words total.`,
     await supabase
       .from('book_chapters')
       .update({ 
-        hook: outline.hook,
+        hook: outline.openingPoint,
         outline: outline,
         status: 'writing',
       })
       .eq('id', chapter.id)
 
-    // Step 2: Write each section with GPT-4o
+    // Step 2: Write the chapter with GPT-4o
     const sections: string[] = []
 
-    // Write the opening hook
+    // Write the opening
     const hookResult = await generateText({
       model: openai('gpt-4o'),
       system: `You are writing a chapter for "${project.title}".
-Match this approved tone:
-${project.approved_tone_sample?.slice(0, 1500) || 'Professional but engaging, with concrete examples.'}
 
-Write in a way that flows naturally. Use the source material as your foundation.`,
+${WRITING_STYLE}
+
+${project.approved_tone_sample ? `APPROVED TONE SAMPLE:\n${project.approved_tone_sample.slice(0, 1000)}` : ''}`,
       prompt: `Write the opening of Chapter ${chapterNumber}: "${chapter.title}"
 
-HOOK TO USE: ${outline.hook}
+MAIN POINT TO ESTABLISH: ${outline.openingPoint}
 
-${prevEnding ? `Connect naturally from this ending:\n"${prevEnding}"` : 'This is the first chapter.'}
+${prevEnding ? `Previous chapter ended with: "${prevEnding}"\nConnect briefly, then move on.` : ''}
 
 SOURCE MATERIAL:
 ${sourceContent.slice(0, 5000)}
 
-Write approximately 300-400 words for the chapter opening. End with a natural transition into the first section.`,
+Write 200-300 words. Start with your main point. No "imagine" or "picture" openings.`,
     })
 
     sections.push(hookResult.text)
@@ -151,47 +173,44 @@ Write approximately 300-400 words for the chapter opening. End with a natural tr
     // Write each section
     for (let i = 0; i < outline.sections.length; i++) {
       const section = outline.sections[i]
-      const prevSection = i > 0 ? sections[sections.length - 1].slice(-500) : hookResult.text.slice(-500)
+      const prevText = sections[sections.length - 1].slice(-300)
 
       const sectionResult = await generateText({
         model: openai('gpt-4o'),
-        system: `You are writing a section for "${project.title}".
-Match the established tone. Use concrete examples and smooth transitions.`,
+        system: `You are writing a section for a practical guide.
+
+${WRITING_STYLE}`,
         prompt: `CHAPTER ${chapterNumber}: "${chapter.title}"
 SECTION: "${section.title}"
 
 KEY POINTS TO COVER:
 ${section.keyPoints.map(p => `- ${p}`).join('\n')}
 
-PREVIOUS TEXT ENDED WITH:
-"${prevSection}"
+PREVIOUS PARAGRAPH ENDED WITH:
+"${prevText}"
 
 SOURCE MATERIAL:
 ${sourceContent.slice(0, 5000)}
 
-Write approximately ${section.targetWords} words. Connect smoothly from the previous text.`,
+Write ${section.targetWords} words. Be direct. Teach something useful in every paragraph.`,
       })
 
       sections.push(`\n\n## ${section.title}\n\n${sectionResult.text}`)
     }
 
-    // Write the bridge to next chapter
-    if (nextChapter) {
-      const bridgeResult = await generateText({
-        model: openai('gpt-4o'),
-        system: `You are writing a transition at the end of a chapter.`,
-        prompt: `End Chapter ${chapterNumber}: "${chapter.title}" with a bridge to the next chapter: "${nextChapter.title}"
+    // Write closing with practical takeaway
+    const closingResult = await generateText({
+      model: openai('gpt-4o'),
+      system: `You are ending a chapter with a practical summary.`,
+      prompt: `End Chapter ${chapterNumber}: "${chapter.title}"
 
-BRIDGE DIRECTION: ${outline.bridge}
+CLOSING POINT: ${outline.closingPoint}
+${nextChapter ? `NEXT CHAPTER: "${nextChapter.title}"` : 'This is the final chapter.'}
 
-LAST SECTION ENDED WITH:
-"${sections[sections.length - 1].slice(-500)}"
+Write 2-4 sentences. Summarize the practical takeaway. ${nextChapter ? 'Set up what\'s next in one sentence.' : ''}`,
+    })
 
-Write 2-3 sentences that create anticipation for what's coming next.`,
-      })
-
-      sections.push(`\n\n${bridgeResult.text}`)
-    }
+    sections.push(`\n\n${closingResult.text}`)
 
     // Combine all sections
     const fullContent = `# Chapter ${chapterNumber}: ${chapter.title}\n\n${sections.join('')}`
@@ -213,6 +232,7 @@ Write 2-3 sentences that create anticipation for what's coming next.`,
       success: true,
       chapterNumber,
       wordCount,
+      content: fullContent,
     })
 
   } catch (error) {
@@ -223,4 +243,3 @@ Write 2-3 sentences that create anticipation for what's coming next.`,
     )
   }
 }
-
