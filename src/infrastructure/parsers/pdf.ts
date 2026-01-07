@@ -10,10 +10,13 @@ export interface ParsedDocument {
 
 export async function parsePdf(buffer: Buffer): Promise<ParsedDocument> {
   try {
-    // Use dynamic require for pdf-parse as it doesn't support ESM properly
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require('pdf-parse')
-    const data = await pdfParse(buffer)
+    // pdf-parse v2 uses ESM - dynamic import
+    const pdfParseModule = await import('pdf-parse')
+    const pdfParse = pdfParseModule.default || pdfParseModule
+    
+    // Convert Buffer to Uint8Array for pdf-parse v2
+    const uint8Array = new Uint8Array(buffer)
+    const data = await pdfParse(uint8Array)
     
     const content = data.text
       .replace(/\s+/g, ' ')
@@ -29,6 +32,7 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDocument> {
       },
     }
   } catch (error) {
+    console.error('[PDF Parser] Error:', error)
     throw new Error(
       `Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
