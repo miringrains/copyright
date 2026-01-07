@@ -10,24 +10,43 @@ export interface ParsedDocument {
 
 export async function parsePdf(buffer: Buffer): Promise<ParsedDocument> {
   try {
-    // pdf-parse v2 uses ESM - dynamic import
-    const pdfParseModule = await import('pdf-parse')
-    const pdfParse = pdfParseModule.default || pdfParseModule
+    // pdf-parse v2 uses class-based API
+    const { PDFParse } = await import('pdf-parse')
     
     // Convert Buffer to Uint8Array for pdf-parse v2
     const uint8Array = new Uint8Array(buffer)
-    const data = await pdfParse(uint8Array)
     
-    const content = data.text
+    // Create parser instance with data
+    const parser = new PDFParse({ data: uint8Array })
+    
+    // Get text content
+    const textResult = await parser.getText()
+    
+    // Get metadata
+    let info: { Title?: string; Author?: string } = {}
+    let numPages = 0
+    try {
+      const infoResult = await parser.getInfo()
+      info = infoResult.info || {}
+      numPages = infoResult.total || textResult.pages?.length || 0
+    } catch {
+      // Info extraction may fail on some PDFs
+      numPages = textResult.pages?.length || 0
+    }
+    
+    // Clean up
+    await parser.destroy()
+    
+    const content = textResult.text
       .replace(/\s+/g, ' ')
       .trim()
     
     return {
       content,
       metadata: {
-        title: data.info?.Title,
-        author: data.info?.Author,
-        pages: data.numpages,
+        title: info.Title,
+        author: info.Author,
+        pages: numPages,
         wordCount: content.split(/\s+/).length,
       },
     }
