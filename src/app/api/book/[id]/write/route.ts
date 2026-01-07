@@ -15,8 +15,10 @@ const ChapterOutlineSchema = z.object({
   closingPoint: z.string().describe('The practical takeaway to end with'),
 })
 
-// Writing style - clear, simple, practical
+// Writing style - James Clear meets a witty friend
 const WRITING_STYLE = `
+STYLE: Write like James Clear (Atomic Habits) or Dale Carnegie (How to Win Friends) — but with occasional dry humor.
+
 WORD CHOICE:
 - Use everyday words. "Important" not "fundamental." "Thousands of years" not "millennia."
 - If a 5th grader wouldn't know the word, find a simpler one.
@@ -29,23 +31,29 @@ SENTENCES:
 - Mix lengths: short for impact, medium for explanation.
 
 TONE:
-- Talk to the reader like a friend explaining something useful.
+- Talk to the reader like a smart friend explaining something useful.
 - Be direct. "Here's why" not "The reason for this is."
 - Skip buildup. Don't "set the stage" - just teach.
 
-BANNED WORDS/PHRASES:
+HUMOR (use sparingly, maybe once per section):
+- Dry observations work best. Not jokes—just wry acknowledgment of reality.
+- Example: "Wool absorbs 30% of its weight in moisture before feeling damp. Cotton gives up at about 7%. It's not even close."
+- Example: "Your grandmother was right about washing wool in cold water. She just didn't explain why."
+- Never force it. If nothing's funny, don't try.
+
+BANNED:
 - "Fundamental," "millennia," "myriad," "plethora," "utilize," "facilitate"
 - "When you think of..." "Consider the fact that..." "It's worth noting..."
 - "Imagine," "picture," "envision"
-- Any word you wouldn't say out loud to a friend
+- Puns. Dad jokes. Forced humor.
 
 BAD: "When you think of wool, you're considering a fiber that's been fundamental to human clothing for millennia."
-GOOD: "Wool has kept humans warm for thousands of years."
+GOOD: "For thousands of years, humans have relied on wool to keep them warm."
 
 BAD: "structured with overlapping scales that give wool its unique property: felting"
 GOOD: "covered in tiny scales that lock together when wet—which is why wool shrinks"
 
-Write like you're explaining to a smart friend. Simple words. Clear sentences. Useful information.
+Write like you're explaining to a smart friend. Simple words. Clear sentences. Occasional wit.
 `
 
 /**

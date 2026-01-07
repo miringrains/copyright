@@ -3,39 +3,46 @@ import { getServerClient } from '@/infrastructure/supabase/client'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
-// Direct, practical writing style - clear and simple
+// Writing style - James Clear meets a witty friend
 const WRITING_STYLE = `
-STYLE: Write for smart adults who prefer simple language.
+STYLE: Write like James Clear (Atomic Habits) or Dale Carnegie (How to Win Friends) — but with occasional dry humor.
 
 WORD CHOICE:
 - Use everyday words. "Important" not "fundamental." "Thousands of years" not "millennia."
 - If a 5th grader wouldn't know the word, find a simpler one.
 - Short words beat long ones. "Use" not "utilize." "Help" not "facilitate."
-- Cut filler phrases: "it's important to note that" → just say the thing.
+- Cut filler: "it's important to note" → just say the thing.
 
-SENTENCE STRUCTURE:
+SENTENCES:
 - Lead with the point. "Wool shrinks in hot water" not "When considering wool care..."
 - One idea per sentence. Break up compound sentences.
-- Mix lengths: short for impact, medium for explanation. Rarely go long.
+- Mix lengths: short for impact, medium for explanation.
 
 TONE:
-- Talk to the reader like a friend explaining something useful.
+- Talk to the reader like a smart friend explaining something useful.
 - Be direct, not formal. "Here's why" not "The reason for this is."
-- Skip the buildup. Don't "set the stage" - just teach.
+- Skip buildup. Don't "set the stage" - just teach.
+
+HUMOR (use sparingly, maybe once per section):
+- Dry observations work best. Not jokes—just wry acknowledgment of reality.
+- Example: "Wool absorbs 30% of its weight in moisture before feeling damp. Cotton gives up at about 7%. It's not even close."
+- Example: "Your grandmother was right about washing wool in cold water. She just didn't explain why."
+- Never force it. If nothing's funny, don't try to be funny.
 
 BANNED:
 - "Fundamental," "millennia," "myriad," "plethora," "utilize"
 - "When you think of..." "Consider the fact that..." "It's worth noting..."
-- Any word you'd never say out loud to a friend
+- "Imagine," "picture," "envision"
+- Puns. Dad jokes. Anything that sounds like a greeting card.
 
 GOOD EXAMPLE:
-"Wool has kept humans warm for thousands of years. Over 200 sheep breeds exist, each producing different types of wool.
+"For thousands of years, humans have relied on wool to keep them warm. Over 200 sheep breeds exist, each producing different types of wool.
 
 What makes wool special? Three things.
 
-First, it stays warm when wet. Get cotton wet and it loses almost all its insulation. Wool keeps most of its warmth because the fibers trap air in tiny crimped pockets.
+First, it stays warm when wet. Get cotton wet and it loses almost all its insulation. Wool keeps most of its warmth because the fibers trap air in tiny crimped pockets. This is why hikers swear by wool socks—and why cotton kills, as the old saying goes.
 
-Second, it handles sweat well. Wool absorbs up to 30% of its weight in moisture before it feels damp. That's why wool socks work for hiking—they pull sweat away from your skin."
+Second, it handles sweat well. Wool absorbs up to 30% of its weight in moisture before it feels damp. Cotton taps out at 7%. Your grandmother was right about wool being worth the price."
 `
 
 /**
