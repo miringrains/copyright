@@ -24,7 +24,7 @@ export async function GET(
 
     const { data: project, error } = await supabase
       .from('book_projects')
-      .select('id, title, status, progress, updated_at')
+      .select('id, title, subtitle, table_of_contents, status, progress, updated_at')
       .eq('id', projectId)
       .single()
 
@@ -45,6 +45,8 @@ export async function GET(
     return NextResponse.json({
       projectId: project.id,
       title: project.title,
+      subtitle: project.subtitle,
+      tableOfContents: project.table_of_contents,
       status: project.status,
       progress: project.progress as BookProgress,
       lastActivity: project.updated_at,

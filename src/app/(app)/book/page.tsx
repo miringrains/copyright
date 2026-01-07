@@ -1089,19 +1089,19 @@ export default function BookPage() {
     setTitle(inProgressProject.title)
     setSubtitle(inProgressProject.subtitle || '')
     
-    // Load project details
+    // Load project details including table of contents
     const progressRes = await fetch(`/api/book/${inProgressProject.id}/progress`)
     const progressData = await progressRes.json()
     
-    // Set TOC from progress data or fetch from project
-    if (progressData.chapters?.details) {
-      setToc(progressData.chapters.details.map((ch: { chapter_number: number; title?: string }) => ({
-        number: ch.chapter_number,
-        title: ch.title || `Chapter ${ch.chapter_number}`,
+    // Set TOC from the saved table_of_contents
+    if (progressData.tableOfContents && Array.isArray(progressData.tableOfContents)) {
+      setToc(progressData.tableOfContents.map((ch: { number: number; title: string }) => ({
+        number: ch.number,
+        title: ch.title,
       })))
     }
     
-    // Set chapter progress
+    // Set chapter progress from chapter details
     if (progressData.chapters?.details) {
       setChapterProgress(progressData.chapters.details.map((ch: { chapter_number: number; status: string; word_count?: number }) => ({
         chapter: ch.chapter_number,
