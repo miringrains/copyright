@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerClient } from '@/infrastructure/supabase/client'
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak } from 'docx'
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak, Table, TableRow, TableCell, WidthType, ImageRun, BorderStyle } from 'docx'
 
 /**
  * GET /api/book/[id]/export - Export book as DOCX
+ * 
+ * Query params:
+ * - includeVisuals: 'true' | 'false' (default true)
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params
+  const { searchParams } = new URL(request.url)
+  const includeVisuals = searchParams.get('includeVisuals') !== 'false'
   
   try {
     const supabase = getServerClient()
@@ -37,7 +42,7 @@ export async function GET(
     }
 
     // Build document sections
-    const docSections: Paragraph[] = []
+    const docSections: (Paragraph | Table)[] = []
 
     // Title page
     docSections.push(
@@ -109,43 +114,72 @@ export async function GET(
     for (const chapter of chapters) {
       if (!chapter.content) continue
 
-      // Parse markdown-style content
-      const lines = chapter.content.split('\n')
+      // Parse markdown-style content with visual support
+      const elements = parseMarkdownContent(chapter.content, includeVisuals)
       
-      for (const line of lines) {
-        if (line.startsWith('# ')) {
-          // Chapter title
+      for (const element of elements) {
+        if (element.type === 'heading1') {
           docSections.push(
             new Paragraph({
               heading: HeadingLevel.HEADING_1,
-              children: [new TextRun({ text: line.replace('# ', ''), bold: true })],
+              children: [new TextRun({ text: element.text, bold: true })],
               pageBreakBefore: true,
             })
           )
-        } else if (line.startsWith('## ')) {
-          // Section header
+        } else if (element.type === 'heading2') {
           docSections.push(
             new Paragraph({
               heading: HeadingLevel.HEADING_2,
-              children: [new TextRun({ text: line.replace('## ', ''), bold: true })],
+              children: [new TextRun({ text: element.text, bold: true })],
               spacing: { before: 400, after: 200 },
             })
           )
-        } else if (line.startsWith('### ')) {
-          // Subsection header
+        } else if (element.type === 'heading3') {
           docSections.push(
             new Paragraph({
               heading: HeadingLevel.HEADING_3,
-              children: [new TextRun({ text: line.replace('### ', ''), bold: true })],
+              children: [new TextRun({ text: element.text, bold: true })],
               spacing: { before: 300, after: 150 },
             })
           )
-        } else if (line.trim()) {
-          // Regular paragraph
+        } else if (element.type === 'paragraph') {
           docSections.push(
             new Paragraph({
-              children: [new TextRun({ text: line })],
+              children: [new TextRun({ text: element.text })],
               spacing: { after: 200 },
+            })
+          )
+        } else if (element.type === 'table' && element.table) {
+          docSections.push(createDocxTable(element.table.headers, element.table.rows))
+          docSections.push(new Paragraph({ children: [] })) // Spacing after table
+        } else if (element.type === 'image' && element.imageUrl) {
+          // For images, we'll add a placeholder text since fetching images 
+          // requires async and complicates the export
+          docSections.push(
+            new Paragraph({
+              children: [
+                new TextRun({ 
+                  text: `[Image: ${element.alt || 'Illustration'}]`,
+                  italics: true,
+                  color: '666666',
+                }),
+              ],
+              spacing: { before: 200, after: 200 },
+            })
+          )
+        } else if (element.type === 'mermaid') {
+          // Mermaid diagrams can't be directly rendered in DOCX
+          // Add a note about the diagram
+          docSections.push(
+            new Paragraph({
+              children: [
+                new TextRun({ 
+                  text: `[Diagram: See digital version for interactive diagram]`,
+                  italics: true,
+                  color: '666666',
+                }),
+              ],
+              spacing: { before: 200, after: 200 },
             })
           )
         }
@@ -180,5 +214,198 @@ export async function GET(
       { status: 500 }
     )
   }
+}
+
+/**
+ * Content element types from markdown parsing
+ */
+interface ContentElement {
+  type: 'heading1' | 'heading2' | 'heading3' | 'paragraph' | 'table' | 'image' | 'mermaid'
+  text: string
+  table?: { headers: string[]; rows: string[][] }
+  imageUrl?: string
+  alt?: string
+}
+
+/**
+ * Parse markdown content into structured elements
+ */
+function parseMarkdownContent(content: string, includeVisuals: boolean): ContentElement[] {
+  const elements: ContentElement[] = []
+  const lines = content.split('\n')
+  
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    
+    // Check for mermaid code block
+    if (line.trim().startsWith('```mermaid') && includeVisuals) {
+      // Skip until closing ```
+      let j = i + 1
+      while (j < lines.length && !lines[j].trim().startsWith('```')) {
+        j++
+      }
+      elements.push({ type: 'mermaid', text: 'diagram' })
+      i = j + 1
+      continue
+    }
+    
+    // Check for markdown table
+    if (line.includes('|') && includeVisuals) {
+      const tableResult = parseMarkdownTable(lines, i)
+      if (tableResult) {
+        elements.push({
+          type: 'table',
+          text: '',
+          table: tableResult.table,
+        })
+        i = tableResult.endIndex + 1
+        continue
+      }
+    }
+    
+    // Check for image
+    if (line.match(/!\[.*?\]\(.*?\)/) && includeVisuals) {
+      const match = line.match(/!\[(.*?)\]\((.*?)\)/)
+      if (match) {
+        elements.push({
+          type: 'image',
+          text: '',
+          alt: match[1],
+          imageUrl: match[2],
+        })
+        i++
+        continue
+      }
+    }
+    
+    // Headings
+    if (line.startsWith('# ')) {
+      elements.push({ type: 'heading1', text: line.replace('# ', '') })
+    } else if (line.startsWith('## ')) {
+      elements.push({ type: 'heading2', text: line.replace('## ', '') })
+    } else if (line.startsWith('### ')) {
+      elements.push({ type: 'heading3', text: line.replace('### ', '') })
+    } else if (line.trim()) {
+      elements.push({ type: 'paragraph', text: line })
+    }
+    
+    i++
+  }
+  
+  return elements
+}
+
+/**
+ * Parse a markdown table starting at a given line
+ */
+function parseMarkdownTable(
+  lines: string[],
+  startIndex: number
+): { table: { headers: string[]; rows: string[][] }; endIndex: number } | null {
+  const headerLine = lines[startIndex]
+  
+  // Must have pipes and content
+  if (!headerLine.includes('|')) return null
+  
+  // Parse header
+  const headers = headerLine
+    .split('|')
+    .map(h => h.trim())
+    .filter(h => h.length > 0)
+  
+  if (headers.length < 2) return null
+  
+  // Check for separator line (| --- | --- |)
+  const separatorIndex = startIndex + 1
+  if (separatorIndex >= lines.length) return null
+  
+  const separator = lines[separatorIndex]
+  if (!separator.match(/\|[\s-]+\|/)) return null
+  
+  // Parse rows
+  const rows: string[][] = []
+  let endIndex = separatorIndex
+  
+  for (let i = separatorIndex + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.includes('|')) break
+    
+    const cells = line
+      .split('|')
+      .map(c => c.trim())
+      .filter(c => c.length > 0)
+    
+    if (cells.length > 0) {
+      rows.push(cells)
+      endIndex = i
+    } else {
+      break
+    }
+  }
+  
+  if (rows.length === 0) return null
+  
+  return {
+    table: { headers, rows },
+    endIndex,
+  }
+}
+
+/**
+ * Create a DOCX table from headers and rows
+ */
+function createDocxTable(headers: string[], rows: string[][]): Table {
+  const borderStyle = {
+    style: BorderStyle.SINGLE,
+    size: 1,
+    color: 'CCCCCC',
+  }
+  
+  const borders = {
+    top: borderStyle,
+    bottom: borderStyle,
+    left: borderStyle,
+    right: borderStyle,
+  }
+
+  // Header row
+  const headerRow = new TableRow({
+    children: headers.map(header =>
+      new TableCell({
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: header, bold: true })],
+          }),
+        ],
+        borders,
+        shading: { fill: 'F5F5F5' },
+      })
+    ),
+  })
+
+  // Data rows
+  const dataRows = rows.map(row =>
+    new TableRow({
+      children: row.map(cell =>
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: cell })],
+            }),
+          ],
+          borders,
+        })
+      ),
+    })
+  )
+
+  return new Table({
+    rows: [headerRow, ...dataRows],
+    width: {
+      size: 100,
+      type: WidthType.PERCENTAGE,
+    },
+  })
 }
 
