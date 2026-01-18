@@ -64,7 +64,7 @@ interface InProgressProject {
 }
 
 // ============================================================================
-// STEP INDICATOR (Minimal line-based)
+// STEP INDICATOR
 // ============================================================================
 
 const STEPS: { key: Step; label: string }[] = [
@@ -81,52 +81,57 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
   const currentIndex = STEPS.findIndex(s => s.key === currentStep)
   
   return (
-    <div className="flex items-center justify-center gap-1 mb-8">
-      {STEPS.map((step, i) => {
-        const isActive = step.key === currentStep
-        const isDone = i < currentIndex
-        
-        return (
-          <div key={step.key} className="flex items-center">
-            <div className={`
-              px-2 py-1 text-xs font-medium transition-colors rounded
-              ${isActive ? 'text-foreground bg-muted' : ''}
-              ${isDone ? 'text-primary' : ''}
-              ${!isActive && !isDone ? 'text-muted-foreground/50' : ''}
-            `}>
-              {step.label}
+    <div className="flex items-center justify-center mb-8">
+      <div className="inline-flex items-center bg-muted/50 rounded-full p-1">
+        {STEPS.map((step, i) => {
+          const isActive = step.key === currentStep
+          const isDone = i < currentIndex
+          
+          return (
+            <div key={step.key} className="flex items-center">
+              <div className={`
+                px-3 py-1.5 text-xs font-medium transition-all rounded-full
+                ${isActive ? 'bg-background text-foreground shadow-sm' : ''}
+                ${isDone ? 'text-foreground' : ''}
+                ${!isActive && !isDone ? 'text-muted-foreground' : ''}
+              `}>
+                {step.label}
+              </div>
             </div>
-            {i < STEPS.length - 1 && (
-              <div className={`w-4 h-px mx-1 ${i < currentIndex ? 'bg-primary' : 'bg-border'}`} />
-            )}
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 // ============================================================================
-// RESUME CARD
+// PROJECT LIST (Landing view)
 // ============================================================================
 
-function ResumeCard({
-  project,
-  onContinue,
-  onStartNew,
+function ProjectList({
+  projects,
+  onSelect,
+  onDelete,
+  onCreateNew,
+  isLoading,
 }: {
-  project: InProgressProject
-  onContinue: () => void
-  onStartNew: () => void
+  projects: InProgressProject[]
+  onSelect: (project: InProgressProject) => void
+  onDelete: (projectId: string) => void
+  onCreateNew: () => void
+  isLoading: boolean
 }) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  
   const stepLabels: Record<string, string> = {
-    setup: 'Setting up',
-    upload: 'Uploading files',
-    organize: 'Organizing content',
-    review_chunks: 'Reviewing chunks',
-    preview: 'Tone preview',
-    write: 'Writing chapters',
-    export: 'Ready to export',
+    setup: 'Setup',
+    upload: 'Uploading',
+    organize: 'Organizing',
+    review_chunks: 'Review',
+    preview: 'Tone',
+    write: 'Writing',
+    export: 'Export',
   }
 
   const formatTime = (dateStr: string) => {
@@ -136,34 +141,102 @@ function ResumeCard({
     const hours = Math.floor(diff / (1000 * 60 * 60))
     
     if (hours < 1) return 'Just now'
-    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`
+    if (hours < 24) return `${hours}h ago`
     const days = Math.floor(hours / 24)
-    return `${days} day${days > 1 ? 's' : ''} ago`
+    return `${days}d ago`
+  }
+
+  const handleDelete = async (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation()
+    if (!confirm('Delete this project? This cannot be undone.')) return
+    
+    setDeletingId(projectId)
+    try {
+      await fetch(`/api/book/${projectId}`, { method: 'DELETE' })
+      onDelete(projectId)
+    } catch (error) {
+      console.error('Failed to delete:', error)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
-    <div className="border-l-2 border-primary bg-background p-4 rounded-r-lg">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm text-muted-foreground mb-0.5">Continue writing</p>
-          <p className="font-medium truncate">{project.title}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {stepLabels[project.progress.current_step] || 'In progress'}
-            {project.progress.current_step === 'write' && 
-              ` · ${project.chapters.written}/${project.chapters.total} chapters`
-            }
-            {' · '}{formatTime(project.updatedAt)}
-          </p>
+    <div className="space-y-6">
+      {/* New Project Button */}
+      <button
+        onClick={onCreateNew}
+        className="w-full p-6 border-2 border-dashed rounded-lg hover:border-primary/50 hover:bg-muted/30 transition-all group"
+      >
+        <div className="flex items-center justify-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+            <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
+          <div className="text-left">
+            <p className="font-medium">New Book</p>
+            <p className="text-sm text-muted-foreground">Start a new writing project</p>
+          </div>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="ghost" size="sm" onClick={onStartNew}>
-            New
-          </Button>
-          <Button size="sm" onClick={onContinue}>
-            Continue
-          </Button>
+      </button>
+
+      {/* Existing Projects */}
+      {projects.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">Recent Projects</p>
+          <div className="border rounded-lg divide-y">
+            {projects.map((project) => (
+              <button
+                key={project.id}
+                onClick={() => onSelect(project)}
+                className="w-full p-4 text-left hover:bg-muted/50 transition-colors first:rounded-t-lg last:rounded-b-lg group"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{project.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        {stepLabels[project.progress.current_step] || 'In progress'}
+                      </span>
+                      {project.progress.current_step === 'write' && (
+                        <span className="text-xs text-muted-foreground">
+                          {project.chapters.written}/{project.chapters.total} chapters
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        · {formatTime(project.updatedAt)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      onClick={(e) => handleDelete(e, project.id)}
+                      disabled={deletingId === project.id}
+                    >
+                      {deletingId === project.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -549,49 +622,51 @@ function ChunkReviewStep({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
+      <div className="border rounded-lg divide-y">
         {chunkSummary.map((ch) => (
           <div key={ch.chapterNumber}>
             <button
               onClick={() => toggleChapter(ch.chapterNumber)}
-              className="flex items-center justify-between w-full py-2.5 px-1 hover:bg-muted/50 rounded transition-colors text-left"
+              className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
-                <span className="w-5 text-right text-sm text-muted-foreground tabular-nums">
+                <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">
                   {ch.chapterNumber}
                 </span>
-                <span className="text-sm">{ch.title}</span>
+                <span className="text-sm font-medium">{ch.title}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
                   {ch.chunkCount} chunks · {ch.totalWords.toLocaleString()} words
                 </span>
                 {expandedChapter === ch.chapterNumber ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 )}
               </div>
             </button>
             
             {expandedChapter === ch.chapterNumber && (
-              <div className="ml-8 mb-2 space-y-2 border-l pl-4">
-                {isLoadingChunks ? (
-                  <div className="flex items-center py-3">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : chapterChunks.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2">No content assigned</p>
-                ) : (
-                  chapterChunks.map((chunk, i) => (
-                    <div key={chunk.id} className="text-sm">
-                      <span className="text-xs text-muted-foreground">
-                        {i + 1}. {chunk.wordCount} words
-                      </span>
-                      <p className="text-muted-foreground line-clamp-2 mt-0.5">{chunk.content}</p>
+              <div className="px-3 pb-3 pt-1 bg-muted/30">
+                <div className="ml-9 space-y-2">
+                  {isLoadingChunks ? (
+                    <div className="flex items-center py-3">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     </div>
-                  ))
-                )}
+                  ) : chapterChunks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">No content assigned</p>
+                  ) : (
+                    chapterChunks.map((chunk, i) => (
+                      <div key={chunk.id} className="p-2 bg-background rounded border text-sm">
+                        <span className="text-xs text-muted-foreground">
+                          Chunk {i + 1} · {chunk.wordCount} words
+                        </span>
+                        <p className="text-muted-foreground line-clamp-2 mt-1">{chunk.content}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -599,12 +674,13 @@ function ChunkReviewStep({
       </div>
       
       {unassignedCount > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {unassignedCount} chunks unassigned — available to all chapters
-        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 rounded-lg bg-muted/50">
+          <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs">?</span>
+          <span>{unassignedCount} unassigned chunks — available to all chapters</span>
+        </div>
       )}
 
-      <div className="flex gap-2 pt-4">
+      <div className="flex gap-2 pt-4 border-t">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
@@ -1022,13 +1098,14 @@ function ExportStep({
 // ============================================================================
 
 export default function BookPage() {
+  // View state: 'landing' (project list) vs 'active' (inside a project)
+  const [view, setView] = useState<'landing' | 'active'>('landing')
   const [step, setStep] = useState<Step>('setup')
   const [projectId, setProjectId] = useState<string | null>(null)
   
-  // Resume state
-  const [inProgressProject, setInProgressProject] = useState<InProgressProject | null>(null)
-  const [showResume, setShowResume] = useState(false)
-  const [checkingResume, setCheckingResume] = useState(true)
+  // Projects state
+  const [projects, setProjects] = useState<InProgressProject[]>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
   
   // Setup state
   const [title, setTitle] = useState('')
@@ -1056,18 +1133,15 @@ export default function BookPage() {
   // Export state
   const [isDownloading, setIsDownloading] = useState(false)
 
-  // Check for in-progress projects on load
+  // Load projects on mount
   useEffect(() => {
     fetch('/api/book')
       .then(res => res.json())
       .then(data => {
-        if (data.projects && data.projects.length > 0) {
-          setInProgressProject(data.projects[0])
-          setShowResume(true)
-        }
+        setProjects(data.projects || [])
       })
       .catch(() => {})
-      .finally(() => setCheckingResume(false))
+      .finally(() => setIsLoadingProjects(false))
   }, [])
 
   // Update progress in database
@@ -1081,16 +1155,14 @@ export default function BookPage() {
     })
   }, [projectId])
 
-  // Resume a project
-  const handleResume = async () => {
-    if (!inProgressProject) return
-    
-    setProjectId(inProgressProject.id)
-    setTitle(inProgressProject.title)
-    setSubtitle(inProgressProject.subtitle || '')
+  // Select and resume a project
+  const handleSelectProject = async (project: InProgressProject) => {
+    setProjectId(project.id)
+    setTitle(project.title)
+    setSubtitle(project.subtitle || '')
     
     // Load project details including table of contents
-    const progressRes = await fetch(`/api/book/${inProgressProject.id}/progress`)
+    const progressRes = await fetch(`/api/book/${project.id}/progress`)
     const progressData = await progressRes.json()
     
     // Set TOC from the saved table_of_contents
@@ -1110,10 +1182,34 @@ export default function BookPage() {
       })))
     }
     
-    // Navigate to correct step
-    const currentStep = inProgressProject.progress.current_step
-    setStep(currentStep)
-    setShowResume(false)
+    // Navigate to correct step and activate project view
+    setStep(project.progress.current_step)
+    setView('active')
+  }
+  
+  // Delete a project
+  const handleDeleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId))
+  }
+  
+  // Start a new project
+  const handleCreateNew = () => {
+    // Reset all state
+    setProjectId(null)
+    setTitle('')
+    setSubtitle('')
+    setToc([])
+    setFiles([])
+    setToneSample(null)
+    setToneFeedback('')
+    setChapterProgress([])
+    setCurrentChapter(null)
+    setCurrentChapterContent(null)
+    setIsWritingAll(false)
+    setWriteAllProgress(null)
+    setWriteComplete(false)
+    setStep('setup')
+    setView('active')
   }
 
   // Create project and move to upload
@@ -1362,8 +1458,15 @@ export default function BookPage() {
     }
   }
 
-  // Reset everything
-  const handleStartOver = () => {
+  // Go back to landing
+  const handleBackToLanding = () => {
+    // Refresh projects list
+    fetch('/api/book')
+      .then(res => res.json())
+      .then(data => setProjects(data.projects || []))
+      .catch(() => {})
+    
+    // Reset state
     setStep('setup')
     setProjectId(null)
     setTitle('')
@@ -1378,141 +1481,149 @@ export default function BookPage() {
     setIsWritingAll(false)
     setWriteAllProgress(null)
     setWriteComplete(false)
-    setShowResume(false)
-    setInProgressProject(null)
+    setView('landing')
   }
 
   const totalWords = chapterProgress.reduce((sum, p) => sum + (p.wordCount || 0), 0)
 
-  // Loading state while checking for resume
-  if (checkingResume) {
+  // Landing view - project list
+  if (view === 'landing') {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="max-w-xl mx-auto">
+        <div className="text-center pt-4 pb-8">
+          <h1 className="text-2xl font-semibold tracking-tight">Book Writer</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Turn your research into a polished book
+          </p>
+        </div>
+
+        <ProjectList
+          projects={projects}
+          onSelect={handleSelectProject}
+          onDelete={handleDeleteProject}
+          onCreateNew={handleCreateNew}
+          isLoading={isLoadingProjects}
+        />
       </div>
     )
   }
 
+  // Active project view
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Clean header - no icons, just type */}
-      <div className="text-center pt-4 pb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Book Writer</h1>
-        {!showResume && (
-          <p className="text-sm text-muted-foreground mt-1">
-            {step === 'setup' && 'Start with your title and chapters'}
-            {step === 'upload' && 'Upload your research materials'}
-            {step === 'organize' && 'Organizing your content'}
-            {step === 'review_chunks' && 'Review how content maps to chapters'}
-            {step === 'preview' && 'Preview and approve the writing style'}
+      {/* Header with back button */}
+      <div className="flex items-center gap-4 pt-4 pb-6">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={handleBackToLanding}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold tracking-tight truncate">
+            {title || 'New Book'}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {step === 'setup' && 'Set up your book details'}
+            {step === 'upload' && 'Upload research materials'}
+            {step === 'organize' && 'Organizing content...'}
+            {step === 'review_chunks' && 'Review content mapping'}
+            {step === 'preview' && 'Preview writing style'}
             {step === 'write' && 'Write your book'}
-            {step === 'export' && 'Download your finished book'}
+            {step === 'export' && 'Export your book'}
           </p>
-        )}
+        </div>
       </div>
 
-      {/* Resume Card */}
-      {showResume && inProgressProject && (
-        <div className="mb-8">
-          <ResumeCard
-            project={inProgressProject}
-            onContinue={handleResume}
-            onStartNew={() => { setShowResume(false); setInProgressProject(null) }}
+      <StepIndicator currentStep={step} />
+
+      {/* Content area */}
+      <div className="bg-background rounded-lg border p-6 md:p-8">
+        {step === 'setup' && (
+          <SetupStep
+            title={title}
+            subtitle={subtitle}
+            toc={toc}
+            onTitleChange={setTitle}
+            onSubtitleChange={setSubtitle}
+            onTOCChange={setToc}
+            onNext={handleSetupNext}
           />
-        </div>
-      )}
+        )}
 
-      {!showResume && (
-        <>
-          <StepIndicator currentStep={step} />
+        {step === 'upload' && (
+          <UploadStep
+            projectId={projectId}
+            files={files}
+            onFilesChange={setFiles}
+            onNext={handleUploadNext}
+            onBack={() => setStep('setup')}
+            isProcessing={isProcessing}
+          />
+        )}
 
-          {/* Content area with paper-like appearance */}
-          <div className="bg-background rounded-lg border shadow-sm p-6 md:p-8">
-            {step === 'setup' && (
-              <SetupStep
-                title={title}
-                subtitle={subtitle}
-                toc={toc}
-                onTitleChange={setTitle}
-                onSubtitleChange={setSubtitle}
-                onTOCChange={setToc}
-                onNext={handleSetupNext}
-              />
-            )}
-
-            {step === 'upload' && (
-              <UploadStep
-                projectId={projectId}
-                files={files}
-                onFilesChange={setFiles}
-                onNext={handleUploadNext}
-                onBack={() => setStep('setup')}
-                isProcessing={isProcessing}
-              />
-            )}
-
-            {step === 'organize' && (
-              <div className="text-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                <p className="mt-4 text-sm text-muted-foreground">Organizing content...</p>
-              </div>
-            )}
-
-            {step === 'review_chunks' && (
-              <ChunkReviewStep
-                projectId={projectId}
-                chapters={toc}
-                onApprove={handleApproveChunks}
-                onBack={() => setStep('upload')}
-              />
-            )}
-
-            {step === 'preview' && (
-              <TonePreviewStep
-                sample={toneSample}
-                isLoading={toneLoading}
-                onApprove={handleApproveTone}
-                onRegenerate={handleGenerateTone}
-                onBack={() => setStep('review_chunks')}
-                feedback={toneFeedback}
-                onFeedbackChange={setToneFeedback}
-              />
-            )}
-
-            {step === 'write' && (
-              <WriteStep
-                projectId={projectId}
-                chapters={toc}
-                progress={chapterProgress}
-                currentChapterNumber={currentChapter}
-                currentChapterContent={currentChapterContent}
-                isWriting={isWritingChapter}
-                isWritingAll={isWritingAll}
-                writeAllProgress={writeAllProgress}
-                onWriteChapter={handleWriteChapter}
-                onWriteAll={handleWriteAll}
-                onApproveChapter={handleApproveChapter}
-                onRegenerateChapter={handleRegenerateChapter}
-                onBack={() => setStep('preview')}
-                onContinue={() => setStep('export')}
-                isComplete={writeComplete}
-              />
-            )}
-
-            {step === 'export' && (
-              <ExportStep
-                title={title}
-                totalWords={totalWords}
-                chapterCount={toc.length}
-                onDownload={handleDownload}
-                isDownloading={isDownloading}
-                onBack={() => setStep('write')}
-                onStartOver={handleStartOver}
-              />
-            )}
+        {step === 'organize' && (
+          <div className="text-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+            <p className="mt-4 text-sm text-muted-foreground">Organizing content...</p>
           </div>
-        </>
-      )}
+        )}
+
+        {step === 'review_chunks' && (
+          <ChunkReviewStep
+            projectId={projectId}
+            chapters={toc}
+            onApprove={handleApproveChunks}
+            onBack={() => setStep('upload')}
+          />
+        )}
+
+        {step === 'preview' && (
+          <TonePreviewStep
+            sample={toneSample}
+            isLoading={toneLoading}
+            onApprove={handleApproveTone}
+            onRegenerate={handleGenerateTone}
+            onBack={() => setStep('review_chunks')}
+            feedback={toneFeedback}
+            onFeedbackChange={setToneFeedback}
+          />
+        )}
+
+        {step === 'write' && (
+          <WriteStep
+            projectId={projectId}
+            chapters={toc}
+            progress={chapterProgress}
+            currentChapterNumber={currentChapter}
+            currentChapterContent={currentChapterContent}
+            isWriting={isWritingChapter}
+            isWritingAll={isWritingAll}
+            writeAllProgress={writeAllProgress}
+            onWriteChapter={handleWriteChapter}
+            onWriteAll={handleWriteAll}
+            onApproveChapter={handleApproveChapter}
+            onRegenerateChapter={handleRegenerateChapter}
+            onBack={() => setStep('preview')}
+            onContinue={() => setStep('export')}
+            isComplete={writeComplete}
+          />
+        )}
+
+        {step === 'export' && (
+          <ExportStep
+            title={title}
+            totalWords={totalWords}
+            chapterCount={toc.length}
+            onDownload={handleDownload}
+            isDownloading={isDownloading}
+            onBack={() => setStep('write')}
+            onStartOver={handleBackToLanding}
+          />
+        )}
+      </div>
     </div>
   )
 }
