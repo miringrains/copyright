@@ -86,8 +86,8 @@ function generatePrintHTML(data: ChapterData): string {
   <link rel="stylesheet" href="https://use.typekit.net/vkz3swl.css">
   <style>
     @page {
-      size: 6in 9in;
-      margin: 0.875in 0.75in;
+      size: letter;
+      margin: 1in;
     }
     
     * {
@@ -98,82 +98,65 @@ function generatePrintHTML(data: ChapterData): string {
     
     html, body {
       font-family: "adobe-garamond-pro", Georgia, serif;
-      font-size: 11pt;
-      line-height: 1.65;
-      color: #1a1a1a;
-    }
-    
-    body {
-      margin: 0;
-      padding: 0;
-    }
-    
-    .page {
+      font-size: 12pt;
+      line-height: 1.6;
+      color: #111;
       width: 100%;
-      max-width: 100%;
     }
     
     .running-header {
       display: flex;
       justify-content: space-between;
-      font-size: 8pt;
+      font-size: 9pt;
       text-transform: uppercase;
-      letter-spacing: 0.15em;
-      color: #888;
-      margin-bottom: 0.5in;
-      padding-bottom: 0.25in;
-      border-bottom: 0.5pt solid #ddd;
+      letter-spacing: 0.12em;
+      color: #666;
+      padding-bottom: 12pt;
+      margin-bottom: 24pt;
+      border-bottom: 0.5pt solid #ccc;
     }
     
     .chapter-header {
       text-align: center;
-      margin-bottom: 1.5in;
-      padding-top: 1in;
+      padding-top: 72pt;
+      margin-bottom: 72pt;
     }
     
     .chapter-label {
-      font-size: 9pt;
+      font-size: 10pt;
       text-transform: uppercase;
-      letter-spacing: 0.25em;
+      letter-spacing: 0.2em;
       color: #666;
-      margin-bottom: 0.75rem;
+      margin-bottom: 8pt;
     }
     
     .chapter-title {
-      font-size: 26pt;
+      font-size: 28pt;
       font-weight: 400;
       margin: 0;
-      letter-spacing: 0.01em;
-    }
-    
-    .content {
-      column-count: 1;
     }
     
     h2 {
-      font-size: 13pt;
+      font-size: 14pt;
       font-weight: 600;
-      margin-top: 1.25em;
-      margin-bottom: 0.6em;
-      letter-spacing: 0.01em;
+      margin-top: 24pt;
+      margin-bottom: 12pt;
     }
     
     h3 {
-      font-size: 11pt;
+      font-size: 12pt;
       font-weight: 600;
-      margin-top: 1em;
-      margin-bottom: 0.4em;
+      margin-top: 18pt;
+      margin-bottom: 8pt;
     }
     
     p {
-      margin: 0 0 0.75em 0;
+      margin: 0 0 12pt 0;
       text-align: justify;
-      hyphens: auto;
-      -webkit-hyphens: auto;
     }
     
     p + p {
-      text-indent: 1.5em;
+      text-indent: 24pt;
       margin-top: 0;
     }
     
@@ -181,93 +164,72 @@ function generatePrintHTML(data: ChapterData): string {
       text-indent: 0;
     }
     
-    strong {
-      font-weight: 700;
-    }
+    strong { font-weight: 700; }
+    em { font-style: italic; }
     
-    em {
-      font-style: italic;
-    }
-    
-    .page-number {
-      text-align: center;
-      font-size: 9pt;
-      color: #888;
-      margin-top: 0.5in;
-      padding-top: 0.25in;
+    .print-instructions {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      z-index: 100;
     }
     
     @media print {
-      .print-button {
+      .print-button, .print-instructions {
         display: none !important;
-      }
-      
-      .page {
-        padding: 0;
-      }
-      
-      .running-header {
-        position: running(header);
       }
     }
     
     @media screen {
-      html {
-        background: #525659;
-      }
-      
-      body {
-        padding: 2rem;
-      }
-      
-      .page {
-        background: white;
-        width: 6in;
-        min-height: 9in;
+      html { background: #444; }
+      body { 
+        max-width: 8.5in;
         margin: 0 auto;
-        padding: 0.875in 0.75in;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        padding: 1in;
+        background: white;
+        min-height: 100vh;
       }
-      
       .print-button {
         position: fixed;
         top: 1rem;
         right: 1rem;
-        background: #1a1a1a;
+        background: #000;
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
+        padding: 12px 24px;
         font-family: system-ui, sans-serif;
         font-size: 14px;
+        font-weight: 500;
         cursor: pointer;
-        border-radius: 4px;
+        border-radius: 6px;
         z-index: 100;
       }
-      
-      .print-button:hover {
-        background: #333;
-      }
+      .print-button:hover { background: #222; }
     }
   </style>
 </head>
 <body>
-  <button class="print-button" onclick="window.print()">⌘P &nbsp;Save as PDF</button>
+  <button class="print-button" onclick="window.print()">⌘P Save as PDF</button>
+  <div class="print-instructions">Set paper size to <strong>US Letter</strong> and margins to <strong>None</strong></div>
   
-  <div class="page">
-    <div class="running-header">
-      <span>${data.bookTitle.toUpperCase()}</span>
-      <span>CHAPTER ${data.chapterNumber}</span>
-    </div>
-    
-    <div class="chapter-header">
-      <div class="chapter-label">Chapter ${data.chapterNumber}</div>
-      <h1 class="chapter-title">${data.chapterTitle}</h1>
-    </div>
-    
-    <div class="content">
-      ${data.content}
-    </div>
+  <div class="running-header">
+    <span>${data.bookTitle.toUpperCase()}</span>
+    <span>CHAPTER ${data.chapterNumber}</span>
   </div>
+  
+  <div class="chapter-header">
+    <div class="chapter-label">Chapter ${data.chapterNumber}</div>
+    <h1 class="chapter-title">${data.chapterTitle}</h1>
+  </div>
+  
+  ${data.content}
 </body>
 </html>`
 }
