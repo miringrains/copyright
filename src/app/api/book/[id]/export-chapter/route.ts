@@ -86,94 +86,90 @@ function generatePrintHTML(data: ChapterData): string {
   <link rel="stylesheet" href="https://use.typekit.net/vkz3swl.css">
   <style>
     @page {
-      size: 5.5in 8.5in;
-      margin: 0.75in;
-      
-      @top-left {
-        content: "${data.bookTitle}";
-        font-size: 9pt;
-        font-family: "adobe-garamond-pro", Georgia, serif;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: #666;
-      }
-      
-      @top-right {
-        content: "Chapter ${data.chapterNumber}";
-        font-size: 9pt;
-        font-family: "adobe-garamond-pro", Georgia, serif;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: #666;
-      }
-      
-      @bottom-center {
-        content: counter(page);
-        font-size: 10pt;
-        font-family: "adobe-garamond-pro", Georgia, serif;
-        color: #666;
-      }
+      size: 6in 9in;
+      margin: 0.875in 0.75in;
     }
     
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    html, body {
+      font-family: "adobe-garamond-pro", Georgia, serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      color: #1a1a1a;
     }
     
     body {
-      font-family: "adobe-garamond-pro", Georgia, serif;
-      font-size: 11pt;
-      line-height: 1.7;
-      color: #1a1a1a;
-      max-width: 5.5in;
-      margin: 0 auto;
-      padding: 0.75in;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .page {
+      width: 100%;
+      max-width: 100%;
+    }
+    
+    .running-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #888;
+      margin-bottom: 0.5in;
+      padding-bottom: 0.25in;
+      border-bottom: 0.5pt solid #ddd;
     }
     
     .chapter-header {
       text-align: center;
-      margin-bottom: 2in;
-      padding-top: 1.5in;
+      margin-bottom: 1.5in;
+      padding-top: 1in;
     }
     
     .chapter-label {
-      font-size: 10pt;
+      font-size: 9pt;
       text-transform: uppercase;
-      letter-spacing: 0.2em;
+      letter-spacing: 0.25em;
       color: #666;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
     }
     
     .chapter-title {
-      font-size: 24pt;
+      font-size: 26pt;
       font-weight: 400;
       margin: 0;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.01em;
+    }
+    
+    .content {
+      column-count: 1;
     }
     
     h2 {
-      font-size: 14pt;
+      font-size: 13pt;
       font-weight: 600;
-      margin-top: 1.5em;
-      margin-bottom: 0.75em;
-      letter-spacing: 0.02em;
+      margin-top: 1.25em;
+      margin-bottom: 0.6em;
+      letter-spacing: 0.01em;
     }
     
     h3 {
-      font-size: 12pt;
+      font-size: 11pt;
       font-weight: 600;
-      margin-top: 1.25em;
-      margin-bottom: 0.5em;
+      margin-top: 1em;
+      margin-bottom: 0.4em;
     }
     
     p {
-      margin: 0 0 1em 0;
+      margin: 0 0 0.75em 0;
       text-align: justify;
       hyphens: auto;
       -webkit-hyphens: auto;
-    }
-    
-    p:first-of-type {
-      text-indent: 0;
     }
     
     p + p {
@@ -193,29 +189,44 @@ function generatePrintHTML(data: ChapterData): string {
       font-style: italic;
     }
     
+    .page-number {
+      text-align: center;
+      font-size: 9pt;
+      color: #888;
+      margin-top: 0.5in;
+      padding-top: 0.25in;
+    }
+    
     @media print {
-      body {
-        padding: 0;
-        max-width: none;
+      .print-button {
+        display: none !important;
       }
       
-      .print-button {
-        display: none;
+      .page {
+        padding: 0;
+      }
+      
+      .running-header {
+        position: running(header);
       }
     }
     
     @media screen {
+      html {
+        background: #525659;
+      }
+      
       body {
-        background: #f5f5f5;
         padding: 2rem;
       }
       
       .page {
         background: white;
-        padding: 0.75in;
-        max-width: 5.5in;
+        width: 6in;
+        min-height: 9in;
         margin: 0 auto;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 0.875in 0.75in;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       }
       
       .print-button {
@@ -230,6 +241,7 @@ function generatePrintHTML(data: ChapterData): string {
         font-size: 14px;
         cursor: pointer;
         border-radius: 4px;
+        z-index: 100;
       }
       
       .print-button:hover {
@@ -239,22 +251,23 @@ function generatePrintHTML(data: ChapterData): string {
   </style>
 </head>
 <body>
-  <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+  <button class="print-button" onclick="window.print()">⌘P &nbsp;Save as PDF</button>
   
   <div class="page">
+    <div class="running-header">
+      <span>${data.bookTitle.toUpperCase()}</span>
+      <span>CHAPTER ${data.chapterNumber}</span>
+    </div>
+    
     <div class="chapter-header">
       <div class="chapter-label">Chapter ${data.chapterNumber}</div>
       <h1 class="chapter-title">${data.chapterTitle}</h1>
     </div>
     
-    ${data.content}
+    <div class="content">
+      ${data.content}
+    </div>
   </div>
-  
-  <script>
-    // Auto-trigger print dialog for PDF save
-    // Uncomment if you want auto-print:
-    // window.onload = () => window.print();
-  </script>
 </body>
 </html>`
 }
