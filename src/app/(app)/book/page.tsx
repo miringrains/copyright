@@ -753,8 +753,10 @@ function TonePreviewStep({
 }
 
 // ============================================================================
-// STEP: WRITE (Chapter-by-Chapter)
+// STEP: WRITE (Chapter-by-Chapter OR Write All)
 // ============================================================================
+
+type WriteMode = 'select' | 'chapter' | 'all'
 
 function WriteStep({
   projectId,
@@ -763,7 +765,10 @@ function WriteStep({
   currentChapterNumber,
   currentChapterContent,
   isWriting,
+  isWritingAll,
+  writeAllProgress,
   onWriteChapter,
+  onWriteAll,
   onApproveChapter,
   onRegenerateChapter,
   onBack,
@@ -776,13 +781,18 @@ function WriteStep({
   currentChapterNumber: number | null
   currentChapterContent: string | null
   isWriting: boolean
+  isWritingAll: boolean
+  writeAllProgress: { current: number; total: number; status: string } | null
   onWriteChapter: (chapterNum: number) => void
+  onWriteAll: () => void
   onApproveChapter: () => void
   onRegenerateChapter: () => void
   onBack: () => void
   onContinue: () => void
   isComplete: boolean
 }) {
+  const [mode, setMode] = useState<WriteMode>('select')
+  
   const totalWords = progress.reduce((sum, p) => sum + (p.wordCount || 0), 0)
   const completedCount = progress.filter(p => p.status === 'done').length
   const progressPercent = (completedCount / chapters.length) * 100
@@ -792,9 +802,144 @@ function WriteStep({
     const p = progress.find(pr => pr.chapter === ch.number)
     return !p || p.status === 'pending'
   })
+  
+  const pendingCount = chapters.filter(ch => {
+    const p = progress.find(pr => pr.chapter === ch.number)
+    return !p || p.status === 'pending'
+  }).length
 
   // Currently previewing a chapter that was just written
-  const isPreviewing = currentChapterContent && !isWriting
+  const isPreviewing = currentChapterContent && !isWriting && !isWritingAll
+  
+  // Auto-select chapter mode if some chapters are already done
+  useEffect(() => {
+    if (completedCount > 0 && mode === 'select') {
+      setMode('chapter')
+    }
+  }, [completedCount, mode])
+
+  // Mode Selection Screen
+  if (mode === 'select' && completedCount === 0 && !isWriting && !isWritingAll) {
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Choose Writing Mode</CardTitle>
+            <CardDescription>
+              How would you like to write your {chapters.length} chapters?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <button
+              onClick={() => { setMode('all'); onWriteAll(); }}
+              className="w-full p-6 rounded-lg border-2 border-muted hover:border-primary/50 transition-all text-left group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <PenTool className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">Write All at Once</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Automatically write all {chapters.length} chapters in sequence. 
+                    Best for when you want a complete first draft quickly.
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    Estimated time: {Math.ceil(chapters.length * 2)} minutes
+                  </div>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setMode('chapter')}
+              className="w-full p-6 rounded-lg border-2 border-muted hover:border-primary/50 transition-all text-left group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <Layers className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">Chapter by Chapter</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Write one chapter at a time, review each before proceeding.
+                    Best for careful review and adjustments.
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    Full control over each chapter
+                  </div>
+                </div>
+              </div>
+            </button>
+          </CardContent>
+        </Card>
+        
+        <Button variant="outline" onClick={onBack} className="w-full">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+      </div>
+    )
+  }
+
+  // Write All Progress Screen
+  if (isWritingAll && writeAllProgress) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Writing All Chapters</CardTitle>
+            <CardDescription>
+              {writeAllProgress.current} of {writeAllProgress.total} chapters complete
+              {totalWords > 0 && ` • ${totalWords.toLocaleString()} words so far`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Progress 
+              value={(writeAllProgress.current / writeAllProgress.total) * 100} 
+              className="h-2 mb-4" 
+            />
+            
+            <div className="grid grid-cols-5 gap-1 mb-6">
+              {chapters.map((chapter) => {
+                const chapterProgress = progress.find(p => p.chapter === chapter.number)
+                const status = chapterProgress?.status || 'pending'
+                const isCurrent = chapter.number === currentChapterNumber
+                
+                return (
+                  <div
+                    key={chapter.number}
+                    className={`
+                      h-2 rounded-full transition-colors
+                      ${status === 'done' ? 'bg-green-500' : ''}
+                      ${status === 'writing' || isCurrent ? 'bg-primary animate-pulse' : ''}
+                      ${status === 'pending' && !isCurrent ? 'bg-muted' : ''}
+                    `}
+                    title={`Chapter ${chapter.number}: ${chapter.title}`}
+                  />
+                )
+              })}
+            </div>
+            
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-lg font-medium mb-1">
+                  {writeAllProgress.status}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <p className="text-center text-sm text-muted-foreground">
+          Please don&apos;t close this page. All content is automatically saved.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -865,7 +1010,7 @@ function WriteStep({
       )}
 
       {/* Writing indicator */}
-      {isWriting && (
+      {isWriting && !isWritingAll && (
         <Card>
           <CardContent className="py-12">
             <div className="flex flex-col items-center justify-center">
@@ -881,8 +1026,18 @@ function WriteStep({
       {/* Chapter List (when not writing/previewing) */}
       {!isPreviewing && !isWriting && !isComplete && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-sm">Chapters</CardTitle>
+            {pendingCount > 1 && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={onWriteAll}
+              >
+                <PenTool className="mr-2 h-3 w-3" />
+                Write Remaining ({pendingCount})
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-2">
             {chapters.map((chapter) => {
@@ -1051,6 +1206,8 @@ export default function BookPage() {
   const [currentChapter, setCurrentChapter] = useState<number | null>(null)
   const [currentChapterContent, setCurrentChapterContent] = useState<string | null>(null)
   const [isWritingChapter, setIsWritingChapter] = useState(false)
+  const [isWritingAll, setIsWritingAll] = useState(false)
+  const [writeAllProgress, setWriteAllProgress] = useState<{ current: number; total: number; status: string } | null>(null)
   const [writeComplete, setWriteComplete] = useState(false)
   
   // Export state
@@ -1255,6 +1412,91 @@ export default function BookPage() {
     }
   }
 
+  // Write all remaining chapters
+  const handleWriteAll = async () => {
+    // Get list of pending chapters
+    const pendingChapters = toc.filter(ch => {
+      const p = chapterProgress.find(pr => pr.chapter === ch.number)
+      return !p || p.status === 'pending'
+    })
+    
+    if (pendingChapters.length === 0) {
+      setWriteComplete(true)
+      return
+    }
+    
+    setIsWritingAll(true)
+    setWriteAllProgress({ current: 0, total: pendingChapters.length, status: 'Starting...' })
+    
+    const allChaptersWritten: number[] = chapterProgress
+      .filter(p => p.status === 'done')
+      .map(p => p.chapter)
+    
+    for (let i = 0; i < pendingChapters.length; i++) {
+      const chapter = pendingChapters[i]
+      setCurrentChapter(chapter.number)
+      setWriteAllProgress({ 
+        current: i, 
+        total: pendingChapters.length, 
+        status: `Writing chapter ${chapter.number}...` 
+      })
+      
+      // Update progress to show writing status
+      setChapterProgress(prev =>
+        prev.map(p => p.chapter === chapter.number 
+          ? { ...p, status: 'writing' as const }
+          : p
+        )
+      )
+      
+      try {
+        const response = await fetch(`/api/book/${projectId}/write`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chapterNumber: chapter.number }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          
+          // Mark as done with word count
+          setChapterProgress(prev =>
+            prev.map(p => p.chapter === chapter.number 
+              ? { ...p, status: 'done' as const, wordCount: data.wordCount, content: data.content }
+              : p
+            )
+          )
+          
+          allChaptersWritten.push(chapter.number)
+          
+          // Update progress in DB after each chapter
+          await updateProgress({ 
+            chapters_written: allChaptersWritten,
+            current_chapter: chapter.number,
+          })
+        } else {
+          console.error(`Failed to write chapter ${chapter.number}`)
+          // Continue with next chapter even if one fails
+        }
+      } catch (error) {
+        console.error(`Error writing chapter ${chapter.number}:`, error)
+        // Continue with next chapter
+      }
+    }
+    
+    // Complete
+    setWriteAllProgress({ 
+      current: pendingChapters.length, 
+      total: pendingChapters.length, 
+      status: 'All chapters complete!' 
+    })
+    
+    setIsWritingAll(false)
+    setWriteComplete(true)
+    setCurrentChapter(null)
+    await updateProgress({ current_step: 'export' })
+  }
+
   // Download book
   const handleDownload = async () => {
     setIsDownloading(true)
@@ -1290,6 +1532,8 @@ export default function BookPage() {
     setChapterProgress([])
     setCurrentChapter(null)
     setCurrentChapterContent(null)
+    setIsWritingAll(false)
+    setWriteAllProgress(null)
     setWriteComplete(false)
     setShowResume(false)
     setInProgressProject(null)
@@ -1391,7 +1635,10 @@ export default function BookPage() {
               currentChapterNumber={currentChapter}
               currentChapterContent={currentChapterContent}
               isWriting={isWritingChapter}
+              isWritingAll={isWritingAll}
+              writeAllProgress={writeAllProgress}
               onWriteChapter={handleWriteChapter}
+              onWriteAll={handleWriteAll}
               onApproveChapter={handleApproveChapter}
               onRegenerateChapter={handleRegenerateChapter}
               onBack={() => setStep('preview')}
