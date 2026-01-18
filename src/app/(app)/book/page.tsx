@@ -64,41 +64,40 @@ interface InProgressProject {
 }
 
 // ============================================================================
-// STEP INDICATOR
+// STEP INDICATOR (Minimal line-based)
 // ============================================================================
 
-const STEPS: { key: Step; label: string; icon: React.ElementType }[] = [
-  { key: 'setup', label: 'Setup', icon: BookOpen },
-  { key: 'upload', label: 'Upload', icon: Upload },
-  { key: 'organize', label: 'Organize', icon: Layers },
-  { key: 'review_chunks', label: 'Review', icon: Eye },
-  { key: 'preview', label: 'Tone', icon: Palette },
-  { key: 'write', label: 'Write', icon: PenTool },
-  { key: 'export', label: 'Export', icon: Download },
+const STEPS: { key: Step; label: string }[] = [
+  { key: 'setup', label: 'Setup' },
+  { key: 'upload', label: 'Upload' },
+  { key: 'organize', label: 'Organize' },
+  { key: 'review_chunks', label: 'Review' },
+  { key: 'preview', label: 'Tone' },
+  { key: 'write', label: 'Write' },
+  { key: 'export', label: 'Export' },
 ]
 
 function StepIndicator({ currentStep }: { currentStep: Step }) {
   const currentIndex = STEPS.findIndex(s => s.key === currentStep)
   
   return (
-    <div className="flex items-center justify-center gap-2 mb-8">
+    <div className="flex items-center justify-center gap-1 mb-8">
       {STEPS.map((step, i) => {
-        const Icon = step.icon
         const isActive = step.key === currentStep
         const isDone = i < currentIndex
         
         return (
           <div key={step.key} className="flex items-center">
             <div className={`
-              flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-all
-              ${isActive ? 'bg-primary text-primary-foreground scale-110' : ''}
-              ${isDone ? 'bg-primary/20 text-primary' : ''}
-              ${!isActive && !isDone ? 'bg-muted text-muted-foreground' : ''}
+              px-2 py-1 text-xs font-medium transition-colors rounded
+              ${isActive ? 'text-foreground bg-muted' : ''}
+              ${isDone ? 'text-primary' : ''}
+              ${!isActive && !isDone ? 'text-muted-foreground/50' : ''}
             `}>
-              {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              {step.label}
             </div>
             {i < STEPS.length - 1 && (
-              <ChevronRight className={`h-4 w-4 mx-1 ${i < currentIndex ? 'text-primary' : 'text-muted-foreground/50'}`} />
+              <div className={`w-4 h-px mx-1 ${i < currentIndex ? 'bg-primary' : 'bg-border'}`} />
             )}
           </div>
         )
@@ -143,35 +142,29 @@ function ResumeCard({
   }
 
   return (
-    <Card className="border-primary/30 bg-primary/5">
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <BookOpen className="h-4 w-4 text-primary" />
-              <span className="font-medium">Continue: {project.title}</span>
-            </div>
-            <p className="text-sm text-muted-foreground mb-1">
-              Last activity: {formatTime(project.updatedAt)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {stepLabels[project.progress.current_step] || 'In progress'}
-              {project.progress.current_step === 'write' && 
-                ` (${project.chapters.written}/${project.chapters.total} chapters)`
-              }
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onStartNew}>
-              Start New
-            </Button>
-            <Button size="sm" onClick={onContinue}>
-              Continue <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
-          </div>
+    <div className="border-l-2 border-primary bg-background p-4 rounded-r-lg">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground mb-0.5">Continue writing</p>
+          <p className="font-medium truncate">{project.title}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {stepLabels[project.progress.current_step] || 'In progress'}
+            {project.progress.current_step === 'write' && 
+              ` · ${project.chapters.written}/${project.chapters.total} chapters`
+            }
+            {' · '}{formatTime(project.updatedAt)}
+          </p>
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex gap-2 shrink-0">
+          <Button variant="ghost" size="sm" onClick={onStartNew}>
+            New
+          </Button>
+          <Button size="sm" onClick={onContinue}>
+            Continue
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -239,102 +232,100 @@ function SetupStep({
   const isValid = title.trim() && toc.length > 0 && toc.every(c => c.title.trim())
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Book Details</CardTitle>
-          <CardDescription>Enter your book title and table of contents</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Book Title</Label>
-            <Input
-              id="title"
-              placeholder="The Complete Guide to..."
-              value={title}
-              onChange={(e) => onTitleChange(e.target.value)}
-              className="text-lg"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="subtitle">Subtitle (optional)</Label>
-            <Input
-              id="subtitle"
-              placeholder="A practical approach to..."
-              value={subtitle}
-              onChange={(e) => onSubtitleChange(e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-8">
+      {/* Book Details */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="title" className="text-xs uppercase tracking-wider text-muted-foreground">Title</Label>
+          <Input
+            id="title"
+            placeholder="The Complete Guide to..."
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            className="text-lg border-0 border-b rounded-none px-0 focus-visible:ring-0"
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="subtitle" className="text-xs uppercase tracking-wider text-muted-foreground">Subtitle (optional)</Label>
+          <Input
+            id="subtitle"
+            placeholder="A practical approach to..."
+            value={subtitle}
+            onChange={(e) => onSubtitleChange(e.target.value)}
+            className="border-0 border-b rounded-none px-0 focus-visible:ring-0"
+          />
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Table of Contents</CardTitle>
-          <CardDescription>
-            Paste your chapter list below, or add chapters manually
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {toc.length === 0 ? (
-            <div className="space-y-3">
-              <Textarea
-                placeholder={`Paste your table of contents here, e.g.:
+      {/* Divider */}
+      <div className="border-t" />
+
+      {/* Table of Contents */}
+      <div className="space-y-4">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Chapters</Label>
+        
+        {toc.length === 0 ? (
+          <div className="space-y-3">
+            <Textarea
+              placeholder={`Paste your table of contents:
 
 1. Introduction
-2. Getting Started
+2. Getting Started  
 3. Core Concepts
 4. Advanced Techniques
 5. Conclusion`}
-                value={tocText}
-                onChange={(e) => setTocText(e.target.value)}
-                className="min-h-[200px] font-mono text-sm"
-              />
-              <Button onClick={parseTOC} disabled={!tocText.trim()} className="w-full">
-                Parse Table of Contents
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {toc.map((chapter, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="w-8 text-center text-muted-foreground text-sm">
-                    {chapter.number}.
-                  </span>
-                  <Input
-                    value={chapter.title}
-                    onChange={(e) => updateChapter(i, 'title', e.target.value)}
-                    placeholder="Chapter title"
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeChapter(i)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button variant="outline" onClick={addChapter} className="w-full mt-2">
-                <Plus className="h-4 w-4 mr-2" /> Add Chapter
+              value={tocText}
+              onChange={(e) => setTocText(e.target.value)}
+              className="min-h-[180px] font-mono text-sm resize-none"
+            />
+            <Button onClick={parseTOC} disabled={!tocText.trim()} variant="secondary" className="w-full">
+              Parse Chapters
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {toc.map((chapter, i) => (
+              <div key={i} className="flex items-center gap-2 group">
+                <span className="w-6 text-right text-sm text-muted-foreground tabular-nums">
+                  {chapter.number}
+                </span>
+                <Input
+                  value={chapter.title}
+                  onChange={(e) => updateChapter(i, 'title', e.target.value)}
+                  placeholder="Chapter title"
+                  className="flex-1 border-0 border-b rounded-none px-2 h-9 focus-visible:ring-0"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeChapter(i)}
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={addChapter} className="text-muted-foreground">
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add
               </Button>
               <Button
                 variant="ghost"
+                size="sm"
                 onClick={() => { onTOCChange([]); setTocText('') }}
-                className="w-full text-muted-foreground"
+                className="text-muted-foreground"
               >
-                Start Over
+                Clear
               </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
 
-      <Button onClick={onNext} disabled={!isValid} className="w-full h-12">
-        Continue to Upload <ChevronRight className="ml-2 h-4 w-4" />
+      {/* Action */}
+      <Button onClick={onNext} disabled={!isValid} className="w-full">
+        Continue <ChevronRight className="ml-1 h-4 w-4" />
       </Button>
     </div>
   )
@@ -372,7 +363,6 @@ function UploadStep({
       
       onFilesChange(prev => [...prev, newFile])
       
-      // Upload file
       const formData = new FormData()
       formData.append('file', file)
       formData.append('projectId', projectId || '')
@@ -417,74 +407,63 @@ function UploadStep({
   const allReady = files.length > 0 && files.every(f => f.status === 'ready')
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Source Materials</CardTitle>
-          <CardDescription>
-            Upload PDFs, Word documents, or text files with your research and content
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
-            <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-            <span className="text-sm text-muted-foreground">
-              Drop files here or click to browse
-            </span>
-            <span className="text-xs text-muted-foreground mt-1">
-              PDF, DOCX, TXT, MD
-            </span>
-            <input
-              type="file"
-              className="hidden"
-              multiple
-              accept=".pdf,.docx,.doc,.txt,.md"
-              onChange={handleFileSelect}
-            />
-          </label>
+    <div className="space-y-6">
+      {/* Upload area */}
+      <label className="flex flex-col items-center justify-center w-full py-12 border border-dashed rounded-lg cursor-pointer hover:border-muted-foreground/50 transition-colors">
+        <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+        <span className="text-sm">Drop files or click to browse</span>
+        <span className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, MD</span>
+        <input
+          type="file"
+          className="hidden"
+          multiple
+          accept=".pdf,.docx,.doc,.txt,.md"
+          onChange={handleFileSelect}
+        />
+      </label>
 
-          {files.length > 0 && (
-            <div className="space-y-2 mt-4">
-              {files.map(file => (
-                <div
-                  key={file.id}
-                  className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-                >
-                  <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{file.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatSize(file.size)}
-                      {file.chunks && ` • ${file.chunks} chunks`}
-                    </div>
-                  </div>
-                  {file.status === 'uploading' && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                  {file.status === 'ready' && (
-                    <Check className="h-4 w-4 text-green-500" />
-                  )}
-                  {file.status === 'error' && (
-                    <span className="text-xs text-destructive">Error</span>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeFile(file.id)}
-                    className="h-8 w-8"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+      {/* File list */}
+      {files.length > 0 && (
+        <div className="space-y-1">
+          {files.map(file => (
+            <div
+              key={file.id}
+              className="flex items-center gap-3 py-2 group"
+            >
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm truncate block">{file.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatSize(file.size)}
+                  {file.chunks && ` · ${file.chunks} chunks`}
+                </span>
+              </div>
+              {file.status === 'uploading' && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
+              {file.status === 'ready' && (
+                <Check className="h-3.5 w-3.5 text-primary" />
+              )}
+              {file.status === 'error' && (
+                <span className="text-xs text-destructive">Failed</span>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => removeFile(file.id)}
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      )}
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      {/* Actions */}
+      <div className="flex gap-2 pt-4">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         <Button 
           onClick={onNext} 
@@ -494,7 +473,7 @@ function UploadStep({
           {isProcessing ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
           ) : (
-            <>Continue <ChevronRight className="ml-2 h-4 w-4" /></>
+            <>Continue <ChevronRight className="ml-1 h-4 w-4" /></>
           )}
         </Button>
       </div>
@@ -563,94 +542,74 @@ function ChunkReviewStep({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Review Content Mapping</CardTitle>
-          <CardDescription>
-            AI has assigned content chunks to each chapter. Review and adjust if needed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {chunkSummary.map((ch) => (
-            <div key={ch.chapterNumber}>
-              <button
-                onClick={() => toggleChapter(ch.chapterNumber)}
-                className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-6 text-center text-sm text-muted-foreground">
-                    {ch.chapterNumber}
-                  </span>
-                  <span className="font-medium text-sm">{ch.title}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">
-                    {ch.chunkCount} chunks • {ch.totalWords.toLocaleString()} words
-                  </span>
-                  {expandedChapter === ch.chapterNumber ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-              </button>
-              
-              {expandedChapter === ch.chapterNumber && (
-                <div className="mt-2 ml-9 space-y-2 pb-2">
-                  {isLoadingChunks ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </div>
-                  ) : chapterChunks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">
-                      No chunks assigned to this chapter
-                    </p>
-                  ) : (
-                    chapterChunks.map((chunk, i) => (
-                      <div
-                        key={chunk.id}
-                        className="p-3 bg-background border rounded-lg text-sm"
-                      >
-                        <div className="text-xs text-muted-foreground mb-1">
-                          Chunk {i + 1} • {chunk.wordCount} words
-                        </div>
-                        <p className="line-clamp-3">{chunk.content}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-          
-          {unassignedCount > 0 && (
-            <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-yellow-600 dark:text-yellow-400">
-                  {unassignedCount} unassigned chunks
+    <div className="space-y-6">
+      <div className="space-y-1">
+        {chunkSummary.map((ch) => (
+          <div key={ch.chapterNumber}>
+            <button
+              onClick={() => toggleChapter(ch.chapterNumber)}
+              className="flex items-center justify-between w-full py-2.5 px-1 hover:bg-muted/50 rounded transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-5 text-right text-sm text-muted-foreground tabular-nums">
+                  {ch.chapterNumber}
                 </span>
-                <span className="text-muted-foreground">
-                  (will be available to all chapters)
-                </span>
+                <span className="text-sm">{ch.title}</span>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {ch.chunkCount} chunks · {ch.totalWords.toLocaleString()} words
+                </span>
+                {expandedChapter === ch.chapterNumber ? (
+                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </div>
+            </button>
+            
+            {expandedChapter === ch.chapterNumber && (
+              <div className="ml-8 mb-2 space-y-2 border-l pl-4">
+                {isLoadingChunks ? (
+                  <div className="flex items-center py-3">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : chapterChunks.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">No content assigned</p>
+                ) : (
+                  chapterChunks.map((chunk, i) => (
+                    <div key={chunk.id} className="text-sm">
+                      <span className="text-xs text-muted-foreground">
+                        {i + 1}. {chunk.wordCount} words
+                      </span>
+                      <p className="text-muted-foreground line-clamp-2 mt-0.5">{chunk.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {unassignedCount > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {unassignedCount} chunks unassigned — available to all chapters
+        </p>
+      )}
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      <div className="flex gap-2 pt-4">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         <Button onClick={onApprove} className="flex-1">
-          Approve Mapping <ChevronRight className="ml-2 h-4 w-4" />
+          Continue <ChevronRight className="ml-1 h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -679,67 +638,55 @@ function TonePreviewStep({
   onFeedbackChange: (v: string) => void
 }) {
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Tone Preview</CardTitle>
-          <CardDescription>
-            Review this sample passage. Approve it or request adjustments.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : sample ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <div className="p-4 bg-muted/30 rounded-lg border">
-                {sample.split('\n').map((p, i) => (
-                  <p key={i} className="mb-3 last:mb-0">{p}</p>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Click &quot;Generate Preview&quot; to see a sample
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {sample && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Adjustments (optional)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="Make it more conversational, add more stories, use shorter sentences..."
-              value={feedback}
-              onChange={(e) => onFeedbackChange(e.target.value)}
-              className="min-h-[80px]"
-            />
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      {/* Sample display */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : sample ? (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          {sample.split('\n').map((p, i) => (
+            <p key={i} className="mb-3 last:mb-0 leading-relaxed">{p}</p>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          Generate a sample to preview the writing style
+        </div>
       )}
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      {/* Feedback */}
+      {sample && (
+        <div className="space-y-2 pt-4 border-t">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Adjustments (optional)
+          </Label>
+          <Textarea
+            placeholder="More conversational, shorter sentences, add stories..."
+            value={feedback}
+            onChange={(e) => onFeedbackChange(e.target.value)}
+            className="min-h-[70px] resize-none"
+          />
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-4">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         {sample ? (
           <>
             <Button 
-              variant="outline" 
+              variant="ghost" 
               onClick={onRegenerate}
               disabled={isLoading}
-              className="flex-1"
             >
-              Regenerate
+              <RefreshCw className="mr-1 h-4 w-4" /> Regenerate
             </Button>
             <Button onClick={onApprove} className="flex-1">
-              Approve & Continue <ChevronRight className="ml-2 h-4 w-4" />
+              Approve <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </>
         ) : (
@@ -821,61 +768,41 @@ function WriteStep({
   // Mode Selection Screen
   if (mode === 'select' && completedCount === 0 && !isWriting && !isWritingAll) {
     return (
-      <div className="space-y-6 max-w-2xl mx-auto">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle>Choose Writing Mode</CardTitle>
-            <CardDescription>
-              How would you like to write your {chapters.length} chapters?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <button
-              onClick={() => { setMode('all'); onWriteAll(); }}
-              className="w-full p-6 rounded-lg border-2 border-muted hover:border-primary/50 transition-all text-left group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <PenTool className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">Write All at Once</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Automatically write all {chapters.length} chapters in sequence. 
-                    Best for when you want a complete first draft quickly.
-                  </p>
-                  <div className="text-xs text-muted-foreground">
-                    Estimated time: {Math.ceil(chapters.length * 2)} minutes
-                  </div>
-                </div>
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <button
+            onClick={() => { setMode('all'); onWriteAll(); }}
+            className="w-full p-4 rounded-lg border hover:border-primary/50 transition-all text-left group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium mb-0.5">Write All at Once</h3>
+                <p className="text-sm text-muted-foreground">
+                  Generate all {chapters.length} chapters automatically
+                </p>
               </div>
-            </button>
-            
-            <button
-              onClick={() => setMode('chapter')}
-              className="w-full p-6 rounded-lg border-2 border-muted hover:border-primary/50 transition-all text-left group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <Layers className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">Chapter by Chapter</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Write one chapter at a time, review each before proceeding.
-                    Best for careful review and adjustments.
-                  </p>
-                  <div className="text-xs text-muted-foreground">
-                    Full control over each chapter
-                  </div>
-                </div>
+              <span className="text-xs text-muted-foreground">~{Math.ceil(chapters.length * 2)} min</span>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => setMode('chapter')}
+            className="w-full p-4 rounded-lg border hover:border-primary/50 transition-all text-left group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium mb-0.5">Chapter by Chapter</h3>
+                <p className="text-sm text-muted-foreground">
+                  Write and review each chapter individually
+                </p>
               </div>
-            </button>
-          </CardContent>
-        </Card>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </button>
+        </div>
         
-        <Button variant="outline" onClick={onBack} className="w-full">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
       </div>
     )
@@ -884,224 +811,154 @@ function WriteStep({
   // Write All Progress Screen
   if (isWritingAll && writeAllProgress) {
     return (
-      <div className="space-y-6 max-w-3xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Writing All Chapters</CardTitle>
-            <CardDescription>
-              {writeAllProgress.current} of {writeAllProgress.total} chapters complete
-              {totalWords > 0 && ` • ${totalWords.toLocaleString()} words so far`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Progress 
-              value={(writeAllProgress.current / writeAllProgress.total) * 100} 
-              className="h-2 mb-4" 
-            />
-            
-            <div className="grid grid-cols-5 gap-1 mb-6">
-              {chapters.map((chapter) => {
-                const chapterProgress = progress.find(p => p.chapter === chapter.number)
-                const status = chapterProgress?.status || 'pending'
-                const isCurrent = chapter.number === currentChapterNumber
-                
-                return (
-                  <div
-                    key={chapter.number}
-                    className={`
-                      h-2 rounded-full transition-colors
-                      ${status === 'done' ? 'bg-green-500' : ''}
-                      ${status === 'writing' || isCurrent ? 'bg-primary animate-pulse' : ''}
-                      ${status === 'pending' && !isCurrent ? 'bg-muted' : ''}
-                    `}
-                    title={`Chapter ${chapter.number}: ${chapter.title}`}
-                  />
-                )
-              })}
-            </div>
-            
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-                <p className="text-lg font-medium mb-1">
-                  {writeAllProgress.status}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-4" />
+          <p className="font-medium mb-1">
+            Writing Chapter {currentChapterNumber}
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {chapters.find(c => c.number === currentChapterNumber)?.title}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {writeAllProgress.current} of {writeAllProgress.total} complete
+            {totalWords > 0 && ` · ${totalWords.toLocaleString()} words`}
+          </p>
+        </div>
         
-        <p className="text-center text-sm text-muted-foreground">
-          Please don&apos;t close this page. All content is automatically saved.
+        <Progress 
+          value={(writeAllProgress.current / writeAllProgress.total) * 100} 
+          className="h-1" 
+        />
+        
+        <p className="text-center text-xs text-muted-foreground">
+          Content saved automatically
         </p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      {/* Progress Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isComplete 
-              ? 'All Chapters Complete!'
-              : isPreviewing
-                ? `Review: Chapter ${currentChapterNumber}`
-                : isWriting
-                  ? `Writing: Chapter ${currentChapterNumber}`
-                  : `Write Chapter ${nextPending?.number || 1}`
-            }
-          </CardTitle>
-          <CardDescription>
-            {completedCount} of {chapters.length} chapters complete
-            {totalWords > 0 && ` • ${totalWords.toLocaleString()} words total`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Progress value={progressPercent} className="h-2 mb-4" />
-          
-          <div className="grid grid-cols-5 gap-1">
-            {chapters.map((chapter) => {
-              const chapterProgress = progress.find(p => p.chapter === chapter.number)
-              const status = chapterProgress?.status || 'pending'
-              const isCurrent = chapter.number === currentChapterNumber
-              
-              return (
-                <div
-                  key={chapter.number}
-                  className={`
-                    h-2 rounded-full transition-colors
-                    ${status === 'done' ? 'bg-green-500' : ''}
-                    ${status === 'writing' ? 'bg-primary animate-pulse' : ''}
-                    ${status === 'pending' && isCurrent ? 'bg-primary/50' : ''}
-                    ${status === 'pending' && !isCurrent ? 'bg-muted' : ''}
-                  `}
-                  title={`Chapter ${chapter.number}: ${chapter.title}`}
-                />
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* Progress summary */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          {completedCount} of {chapters.length} chapters
+        </span>
+        {totalWords > 0 && (
+          <span className="text-muted-foreground">{totalWords.toLocaleString()} words</span>
+        )}
+      </div>
+      
+      <Progress value={progressPercent} className="h-1" />
 
-      {/* Chapter Preview (when content is ready) */}
+      {/* Chapter Preview */}
       {isPreviewing && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
-            </CardTitle>
-            <CardDescription>
-              Review this chapter. Approve to continue, or regenerate for a new version.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none max-h-[400px] overflow-y-auto">
-              <div className="p-4 bg-muted/30 rounded-lg border whitespace-pre-wrap">
-                {currentChapterContent}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
+          </div>
+          <div className="prose prose-sm dark:prose-invert max-w-none max-h-[350px] overflow-y-auto whitespace-pre-wrap">
+            {currentChapterContent}
+          </div>
+        </div>
       )}
 
       {/* Writing indicator */}
       {isWriting && !isWritingAll && (
-        <Card>
-          <CardContent className="py-12">
-            <div className="flex flex-col items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-              <p className="text-muted-foreground">
-                Writing Chapter {currentChapterNumber}...
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Writing Chapter {currentChapterNumber}...
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Chapter List (when not writing/previewing) */}
+      {/* Chapter List */}
       {!isPreviewing && !isWriting && !isComplete && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Chapters</CardTitle>
-            {pendingCount > 1 && (
+        <div className="space-y-1">
+          {pendingCount > 1 && (
+            <div className="flex justify-end mb-2">
               <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm"
                 onClick={onWriteAll}
+                className="text-xs"
               >
-                <PenTool className="mr-2 h-3 w-3" />
-                Write Remaining ({pendingCount})
+                Write All ({pendingCount})
               </Button>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {chapters.map((chapter) => {
-              const chapterProgress = progress.find(p => p.chapter === chapter.number)
-              const status = chapterProgress?.status || 'pending'
-              const isNext = chapter.number === nextPending?.number
-              
-              return (
-                <div
-                  key={chapter.number}
-                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                    isNext ? 'bg-primary/10 border border-primary/20' :
-                    status === 'done' ? 'bg-muted/50' : 'bg-muted/30'
-                  }`}
-                >
-                  <span className="w-6 text-center text-sm text-muted-foreground">
-                    {chapter.number}
-                  </span>
-                  <span className="flex-1 text-sm">{chapter.title}</span>
-                  {status === 'done' && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {chapterProgress?.wordCount?.toLocaleString()} words
-                      </span>
-                      <Check className="h-4 w-4 text-green-500" />
-                    </div>
-                  )}
-                  {isNext && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => onWriteChapter(chapter.number)}
-                    >
-                      Write
-                    </Button>
-                  )}
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+          {chapters.map((chapter) => {
+            const chapterProgress = progress.find(p => p.chapter === chapter.number)
+            const status = chapterProgress?.status || 'pending'
+            const isNext = chapter.number === nextPending?.number
+            
+            return (
+              <div
+                key={chapter.number}
+                className={`flex items-center gap-3 py-2 px-1 rounded transition-colors ${
+                  isNext ? 'bg-muted' : ''
+                }`}
+              >
+                <span className="w-5 text-right text-sm text-muted-foreground tabular-nums">
+                  {chapter.number}
+                </span>
+                <span className="flex-1 text-sm">{chapter.title}</span>
+                {status === 'done' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {chapterProgress?.wordCount?.toLocaleString()}
+                    </span>
+                    <Check className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                )}
+                {isNext && (
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    onClick={() => onWriteChapter(chapter.number)}
+                  >
+                    Write
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Complete state */}
+      {isComplete && (
+        <div className="text-center py-8">
+          <Check className="h-6 w-6 text-primary mx-auto mb-3" />
+          <p className="font-medium">All chapters complete</p>
+        </div>
       )}
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      <div className="flex gap-2 pt-4">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         
         {isPreviewing ? (
           <>
             <Button 
-              variant="outline" 
+              variant="ghost" 
               onClick={onRegenerateChapter}
-              className="flex-1"
             >
-              <RefreshCw className="mr-2 h-4 w-4" /> Regenerate
+              <RefreshCw className="mr-1 h-4 w-4" /> Regenerate
             </Button>
             <Button onClick={onApproveChapter} className="flex-1">
-              Approve <ChevronRight className="ml-2 h-4 w-4" />
+              Approve <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </>
         ) : isComplete ? (
           <Button onClick={onContinue} className="flex-1">
-            Continue to Export <ChevronRight className="ml-2 h-4 w-4" />
+            Continue <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         ) : null}
       </div>
@@ -1131,43 +988,29 @@ function ExportStep({
   onStartOver: () => void
 }) {
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card className="border-2 border-primary/50">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-            <Check className="h-6 w-6 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">{title}</CardTitle>
-          <CardDescription>Your book is ready for download</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-center gap-8 text-center">
-            <div>
-              <div className="text-2xl font-bold">{chapterCount}</div>
-              <div className="text-sm text-muted-foreground">Chapters</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{totalWords.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Words</div>
-            </div>
-          </div>
-          
-          <Button onClick={onDownload} disabled={isDownloading} className="w-full h-12">
-            {isDownloading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
-            ) : (
-              <><Download className="mr-2 h-5 w-5" /> Download as Word Document</>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+    <div className="space-y-8">
+      <div className="text-center py-8">
+        <Check className="h-8 w-8 text-primary mx-auto mb-4" />
+        <h2 className="text-xl font-semibold mb-1">{title}</h2>
+        <p className="text-sm text-muted-foreground">
+          {chapterCount} chapters · {totalWords.toLocaleString()} words
+        </p>
+      </div>
+      
+      <Button onClick={onDownload} disabled={isDownloading} className="w-full">
+        {isDownloading ? (
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
+        ) : (
+          <><Download className="mr-2 h-4 w-4" /> Download Word Document</>
+        )}
+      </Button>
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Review
+      <div className="flex gap-2 pt-4 border-t">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Review
         </Button>
-        <Button variant="outline" onClick={onStartOver} className="flex-1">
-          <Plus className="mr-2 h-4 w-4" /> Write Another Book
+        <Button variant="ghost" onClick={onStartOver} className="flex-1">
+          Start New Book
         </Button>
       </div>
     </div>
@@ -1544,21 +1387,28 @@ export default function BookPage() {
   // Loading state while checking for resume
   if (checkingResume) {
     return (
-      <div className="container max-w-4xl py-8">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="container max-w-4xl py-8">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Book Writer</h1>
-        <p className="text-muted-foreground mt-2">
-          Turn your research into a polished book
-        </p>
+    <div className="max-w-3xl mx-auto">
+      {/* Clean header - no icons, just type */}
+      <div className="text-center pt-4 pb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Book Writer</h1>
+        {!showResume && (
+          <p className="text-sm text-muted-foreground mt-1">
+            {step === 'setup' && 'Start with your title and chapters'}
+            {step === 'upload' && 'Upload your research materials'}
+            {step === 'organize' && 'Organizing your content'}
+            {step === 'review_chunks' && 'Review how content maps to chapters'}
+            {step === 'preview' && 'Preview and approve the writing style'}
+            {step === 'write' && 'Write your book'}
+            {step === 'export' && 'Download your finished book'}
+          </p>
+        )}
       </div>
 
       {/* Resume Card */}
@@ -1576,88 +1426,91 @@ export default function BookPage() {
         <>
           <StepIndicator currentStep={step} />
 
-          {step === 'setup' && (
-            <SetupStep
-              title={title}
-              subtitle={subtitle}
-              toc={toc}
-              onTitleChange={setTitle}
-              onSubtitleChange={setSubtitle}
-              onTOCChange={setToc}
-              onNext={handleSetupNext}
-            />
-          )}
+          {/* Content area with paper-like appearance */}
+          <div className="bg-background rounded-lg border shadow-sm p-6 md:p-8">
+            {step === 'setup' && (
+              <SetupStep
+                title={title}
+                subtitle={subtitle}
+                toc={toc}
+                onTitleChange={setTitle}
+                onSubtitleChange={setSubtitle}
+                onTOCChange={setToc}
+                onNext={handleSetupNext}
+              />
+            )}
 
-          {step === 'upload' && (
-            <UploadStep
-              projectId={projectId}
-              files={files}
-              onFilesChange={setFiles}
-              onNext={handleUploadNext}
-              onBack={() => setStep('setup')}
-              isProcessing={isProcessing}
-            />
-          )}
+            {step === 'upload' && (
+              <UploadStep
+                projectId={projectId}
+                files={files}
+                onFilesChange={setFiles}
+                onNext={handleUploadNext}
+                onBack={() => setStep('setup')}
+                isProcessing={isProcessing}
+              />
+            )}
 
-          {step === 'organize' && (
-            <div className="text-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-              <p className="mt-4 text-muted-foreground">Organizing content...</p>
-            </div>
-          )}
+            {step === 'organize' && (
+              <div className="text-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <p className="mt-4 text-sm text-muted-foreground">Organizing content...</p>
+              </div>
+            )}
 
-          {step === 'review_chunks' && (
-            <ChunkReviewStep
-              projectId={projectId}
-              chapters={toc}
-              onApprove={handleApproveChunks}
-              onBack={() => setStep('upload')}
-            />
-          )}
+            {step === 'review_chunks' && (
+              <ChunkReviewStep
+                projectId={projectId}
+                chapters={toc}
+                onApprove={handleApproveChunks}
+                onBack={() => setStep('upload')}
+              />
+            )}
 
-          {step === 'preview' && (
-            <TonePreviewStep
-              sample={toneSample}
-              isLoading={toneLoading}
-              onApprove={handleApproveTone}
-              onRegenerate={handleGenerateTone}
-              onBack={() => setStep('review_chunks')}
-              feedback={toneFeedback}
-              onFeedbackChange={setToneFeedback}
-            />
-          )}
+            {step === 'preview' && (
+              <TonePreviewStep
+                sample={toneSample}
+                isLoading={toneLoading}
+                onApprove={handleApproveTone}
+                onRegenerate={handleGenerateTone}
+                onBack={() => setStep('review_chunks')}
+                feedback={toneFeedback}
+                onFeedbackChange={setToneFeedback}
+              />
+            )}
 
-          {step === 'write' && (
-            <WriteStep
-              projectId={projectId}
-              chapters={toc}
-              progress={chapterProgress}
-              currentChapterNumber={currentChapter}
-              currentChapterContent={currentChapterContent}
-              isWriting={isWritingChapter}
-              isWritingAll={isWritingAll}
-              writeAllProgress={writeAllProgress}
-              onWriteChapter={handleWriteChapter}
-              onWriteAll={handleWriteAll}
-              onApproveChapter={handleApproveChapter}
-              onRegenerateChapter={handleRegenerateChapter}
-              onBack={() => setStep('preview')}
-              onContinue={() => setStep('export')}
-              isComplete={writeComplete}
-            />
-          )}
+            {step === 'write' && (
+              <WriteStep
+                projectId={projectId}
+                chapters={toc}
+                progress={chapterProgress}
+                currentChapterNumber={currentChapter}
+                currentChapterContent={currentChapterContent}
+                isWriting={isWritingChapter}
+                isWritingAll={isWritingAll}
+                writeAllProgress={writeAllProgress}
+                onWriteChapter={handleWriteChapter}
+                onWriteAll={handleWriteAll}
+                onApproveChapter={handleApproveChapter}
+                onRegenerateChapter={handleRegenerateChapter}
+                onBack={() => setStep('preview')}
+                onContinue={() => setStep('export')}
+                isComplete={writeComplete}
+              />
+            )}
 
-          {step === 'export' && (
-            <ExportStep
-              title={title}
-              totalWords={totalWords}
-              chapterCount={toc.length}
-              onDownload={handleDownload}
-              isDownloading={isDownloading}
-              onBack={() => setStep('write')}
-              onStartOver={handleStartOver}
-            />
-          )}
+            {step === 'export' && (
+              <ExportStep
+                title={title}
+                totalWords={totalWords}
+                chapterCount={toc.length}
+                onDownload={handleDownload}
+                isDownloading={isDownloading}
+                onBack={() => setStep('write')}
+                onStartOver={handleStartOver}
+              />
+            )}
+          </div>
         </>
       )}
     </div>
