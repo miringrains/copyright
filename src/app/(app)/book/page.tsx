@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect } from 'react'
 import { 
   BookOpen, Upload, Layers, Palette, PenTool, Download, 
   ChevronRight, Check, Loader2, FileText, Trash2, Plus,
-  ArrowLeft, RefreshCw, ChevronDown, ChevronUp, Eye
+  ArrowLeft, RefreshCw, ChevronDown, ChevronUp, Eye, BookOpenCheck
 } from 'lucide-react'
+import { PrintPreview } from '@/components/book/print-preview'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1046,50 +1047,86 @@ function WriteStep({
 // STEP: EXPORT
 // ============================================================================
 
+interface ExportChapter {
+  number: number
+  title: string
+  content: string
+  wordCount?: number
+}
+
 function ExportStep({
   title,
+  subtitle,
   totalWords,
   chapterCount,
+  chapters,
   onDownload,
   isDownloading,
   onBack,
   onStartOver,
 }: {
   title: string
+  subtitle?: string
   totalWords: number
   chapterCount: number
+  chapters: ExportChapter[]
   onDownload: () => void
   isDownloading: boolean
   onBack: () => void
   onStartOver: () => void
 }) {
+  const [showPreview, setShowPreview] = useState(false)
+  
   return (
-    <div className="space-y-8">
-      <div className="text-center py-8">
-        <Check className="h-8 w-8 text-primary mx-auto mb-4" />
-        <h2 className="text-xl font-semibold mb-1">{title}</h2>
-        <p className="text-sm text-muted-foreground">
-          {chapterCount} chapters · {totalWords.toLocaleString()} words
-        </p>
+    <>
+      <div className="space-y-8">
+        <div className="text-center py-8">
+          <Check className="h-8 w-8 text-primary mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-1">{title}</h2>
+          <p className="text-sm text-muted-foreground">
+            {chapterCount} chapters · {totalWords.toLocaleString()} words
+          </p>
+        </div>
+        
+        {/* Preview button */}
+        <Button 
+          variant="outline" 
+          onClick={() => setShowPreview(true)} 
+          className="w-full"
+          disabled={chapters.length === 0}
+        >
+          <BookOpenCheck className="mr-2 h-4 w-4" />
+          Preview Book (Print Layout)
+        </Button>
+        
+        <Button onClick={onDownload} disabled={isDownloading} className="w-full">
+          {isDownloading ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
+          ) : (
+            <><Download className="mr-2 h-4 w-4" /> Download Word Document</>
+          )}
+        </Button>
+
+        <div className="flex gap-2 pt-4 border-t">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" /> Review
+          </Button>
+          <Button variant="ghost" onClick={onStartOver} className="flex-1">
+            Start New Book
+          </Button>
+        </div>
       </div>
       
-      <Button onClick={onDownload} disabled={isDownloading} className="w-full">
-        {isDownloading ? (
-          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
-        ) : (
-          <><Download className="mr-2 h-4 w-4" /> Download Word Document</>
-        )}
-      </Button>
-
-      <div className="flex gap-2 pt-4 border-t">
-        <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Review
-        </Button>
-        <Button variant="ghost" onClick={onStartOver} className="flex-1">
-          Start New Book
-        </Button>
-      </div>
-    </div>
+      {/* Print preview modal */}
+      {showPreview && (
+        <PrintPreview
+          bookTitle={title}
+          bookSubtitle={subtitle}
+          chapters={chapters}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </>
   )
 }
 
@@ -1615,8 +1652,18 @@ export default function BookPage() {
         {step === 'export' && (
           <ExportStep
             title={title}
+            subtitle={subtitle}
             totalWords={totalWords}
             chapterCount={toc.length}
+            chapters={toc.map(ch => {
+              const prog = chapterProgress.find(p => p.chapter === ch.number)
+              return {
+                number: ch.number,
+                title: ch.title,
+                content: prog?.content || '',
+                wordCount: prog?.wordCount,
+              }
+            }).filter(ch => ch.content)}
             onDownload={handleDownload}
             isDownloading={isDownloading}
             onBack={() => setStep('write')}

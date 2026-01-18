@@ -25,6 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Adobe Fonts - Garamond Pro for book printing */}
+        <link rel="stylesheet" href="https://use.typekit.net/vkz3swl.css" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

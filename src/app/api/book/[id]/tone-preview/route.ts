@@ -47,6 +47,8 @@ BANNED:
 - "Fundamental," "millennia," "myriad," "plethora," "utilize"
 - Puns. Dad jokes. Greeting card energy.
 - Lists where conditional logic ("if X, then Y") would serve better
+- Em dashes (—) and en dashes (–) — use commas, periods, or restructure instead
+- Hyphenated compound modifiers unless absolutely necessary for clarity
 
 The reader should finish a section feeling oriented, not just informed.
 `
