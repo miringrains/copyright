@@ -7,8 +7,9 @@ import { z } from 'zod'
 const ChapterAssignmentSchema = z.object({
   assignments: z.array(z.object({
     chunkIndex: z.number(),
-    chapters: z.array(z.number()),
-    relevanceScore: z.number(),
+    primaryChapter: z.number().describe('The ONE chapter this chunk is PRIMARILY about. Only the main topic.'),
+    relevanceScore: z.number().describe('How strongly this chunk belongs to the primary chapter (0.0-1.0)'),
+    containsOtherTopics: z.boolean().describe('True if this chunk mentions other unrelated topics'),
   })),
 })
 
@@ -61,29 +62,37 @@ export async function POST(
 
     // Process chunks in batches to avoid token limits
     const batchSize = 20
-    const allAssignments: { chunkId: string; chapters: number[]; score: number }[] = []
+    const allAssignments: { chunkId: string; chapters: number[]; score: number; hasOtherTopics?: boolean }[] = []
 
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize)
       
+      // Show MORE content for better topic detection (up to 1500 chars)
       const chunkSummaries = batch.map(chunk => 
-        `[Chunk ${chunk.chunk_index}]: ${chunk.content.slice(0, 500)}...`
-      ).join('\n\n')
+        `[Chunk ${chunk.chunk_index}]: ${chunk.content.slice(0, 1500)}${chunk.content.length > 1500 ? '...' : ''}`
+      ).join('\n\n---\n\n')
 
       const result = await generateObject({
         model: anthropic('claude-sonnet-4-5-20250929'),
         schema: ChapterAssignmentSchema,
         system: `You are organizing research material for a book. 
-Assign each content chunk to the most relevant chapter(s).
-A chunk can belong to multiple chapters if it's broadly applicable.
-Score relevance from 0.0 to 1.0.`,
+Your job is STRICT topic matching. Each chunk should be assigned to ONE primary chapter only.
+
+CRITICAL RULES:
+- A chunk about "wool" should ONLY go to the Wool chapter, even if it briefly mentions other fibers
+- Look at what the chunk is PRIMARILY about, not what it briefly mentions
+- If a chunk is 80% about wool and 20% about cotton comparison, it belongs to Wool only
+- Mark "containsOtherTopics: true" if the chunk mentions other topics, so the writer knows to filter
+
+DO NOT assign chunks to multiple chapters. Pick the ONE best match.
+Score relevance: 0.9+ = directly about that topic, 0.7-0.9 = mostly about it, <0.7 = tangential`,
         prompt: `CHAPTERS:
 ${chapterList}
 
 CONTENT CHUNKS:
 ${chunkSummaries}
 
-For each chunk, identify which chapter(s) it belongs to and how relevant it is.`,
+For each chunk, identify the ONE primary chapter it belongs to. Be strict - only assign to the chapter the content is PRIMARILY about.`,
       })
 
       for (const assignment of result.object.assignments) {
@@ -91,8 +100,9 @@ For each chunk, identify which chapter(s) it belongs to and how relevant it is.`
         if (chunk) {
           allAssignments.push({
             chunkId: chunk.id,
-            chapters: assignment.chapters,
+            chapters: [assignment.primaryChapter], // Now single chapter
             score: assignment.relevanceScore,
+            hasOtherTopics: assignment.containsOtherTopics,
           })
         }
       }
