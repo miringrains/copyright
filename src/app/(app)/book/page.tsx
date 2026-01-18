@@ -782,6 +782,27 @@ function TonePreviewStep({
 
 type WriteMode = 'select' | 'chapter' | 'all'
 
+// Format markdown content to HTML for preview
+function formatChapterContent(content: string): string {
+  return content
+    // Remove chapter title (shown separately)
+    .replace(/^# Chapter \d+:.+\n\n?/m, '')
+    // H2 headers
+    .replace(/^## (.+)$/gm, '<h2 style="font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h2>')
+    // H3 headers
+    .replace(/^### (.+)$/gm, '<h3 style="font-size: 1.1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Paragraphs (double newline)
+    .split(/\n\n+/)
+    .map(p => p.trim())
+    .filter(p => p && !p.startsWith('<h'))
+    .map(p => p.startsWith('<') ? p : `<p style="margin-bottom: 1rem; line-height: 1.7; text-align: justify;">${p}</p>`)
+    .join('')
+}
+
 function WriteStep({
   projectId,
   chapters,
@@ -795,6 +816,7 @@ function WriteStep({
   onWriteAll,
   onApproveChapter,
   onRegenerateChapter,
+  onExportChapter,
   onBack,
   onContinue,
   isComplete,
@@ -811,6 +833,7 @@ function WriteStep({
   onWriteAll: () => void
   onApproveChapter: () => void
   onRegenerateChapter: () => void
+  onExportChapter?: (chapterNum: number) => void
   onBack: () => void
   onContinue: () => void
   isComplete: boolean
@@ -932,12 +955,27 @@ function WriteStep({
       {/* Chapter Preview */}
       {isPreviewing && (
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onExportChapter && onExportChapter(currentChapterNumber!)}
+              className="text-xs"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              Export PDF
+            </Button>
           </div>
-          <div className="prose prose-sm dark:prose-invert max-w-none max-h-[350px] overflow-y-auto whitespace-pre-wrap">
-            {currentChapterContent}
-          </div>
+          <div 
+            className="book-preview max-h-[350px] overflow-y-auto"
+            style={{ fontFamily: '"adobe-garamond-pro", Georgia, serif' }}
+            dangerouslySetInnerHTML={{ 
+              __html: formatChapterContent(currentChapterContent || '') 
+            }}
+          />
         </div>
       )}
 
@@ -1388,6 +1426,40 @@ export default function BookPage() {
     }
   }
 
+  // Export single chapter as PDF (opens print-ready HTML in new tab)
+  const handleExportChapter = async (chapterNum: number) => {
+    const chapter = toc.find(c => c.number === chapterNum)
+    const prog = chapterProgress.find(p => p.chapter === chapterNum)
+    
+    if (!chapter || !prog?.content) return
+    
+    try {
+      const response = await fetch(`/api/book/${projectId}/export-chapter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookTitle: title,
+          bookSubtitle: subtitle,
+          chapterNumber: chapter.number,
+          chapterTitle: chapter.title,
+          content: prog.content,
+        }),
+      })
+      
+      if (response.ok) {
+        const html = await response.text()
+        // Open in new tab for print-to-PDF
+        const printWindow = window.open('', '_blank')
+        if (printWindow) {
+          printWindow.document.write(html)
+          printWindow.document.close()
+        }
+      }
+    } catch (error) {
+      console.error('Export failed:', error)
+    }
+  }
+
   // Write all remaining chapters
   const handleWriteAll = async () => {
     // Get list of pending chapters
@@ -1643,6 +1715,7 @@ export default function BookPage() {
             onWriteAll={handleWriteAll}
             onApproveChapter={handleApproveChapter}
             onRegenerateChapter={handleRegenerateChapter}
+            onExportChapter={handleExportChapter}
             onBack={() => setStep('preview')}
             onContinue={() => setStep('export')}
             isComplete={writeComplete}
