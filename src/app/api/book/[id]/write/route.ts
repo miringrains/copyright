@@ -5,69 +5,68 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 
-const ChapterOutlineSchema = z.object({
-  openingPoint: z.string().describe('The main point to establish in the first paragraph'),
-  sections: z.array(z.object({
-    title: z.string(),
-    keyPoints: z.array(z.string()),
-    targetWords: z.number(),
-  })),
-  closingPoint: z.string().describe('The practical takeaway to end with'),
+// ============================================================================
+// NARRATIVE PLANNING SCHEMA
+// ============================================================================
+
+const NarrativePlanSchema = z.object({
+  centralQuestion: z.string().describe('The ONE question this chapter answers for the reader'),
+  openingHook: z.string().describe('A specific fact, story, or observation that pulls the reader in (not generic)'),
+  journey: z.array(z.string()).describe('3-5 key moves the chapter makes, in order, to answer the central question'),
+  payoff: z.string().describe('What the reader understands by the end that they didn\'t at the start'),
+  throughLine: z.string().describe('The connecting thread or example that recurs throughout to create cohesion'),
 })
 
-// Writing style - craft-informed, rhythm-aware, mental-model focused
+// ============================================================================
+// WRITING STYLE
+// ============================================================================
+
 const WRITING_STYLE = `
-TEACHING PHILOSOPHY (the soul of the writing):
+THE SOUL OF GOOD TEACHING:
 
-Your job is not to list facts. It's to help the reader THINK about this subject.
+Your job is not to cover topics. It's to take the reader on a journey from confusion to clarity.
 
-A great guide succeeds when the reader no longer needs the guide.
+Every chapter answers ONE central question. Everything in the chapter serves that answer.
 
-Core approach:
-- Before telling what to do, explain why it works this way
-- Properties first, instructions second — rules feel earned when the reader understands structure
-- History explains behavior, it's not decoration — use the past as a causal engine
-- Acknowledge tradeoffs — what it's good at, where it compromises, when it fails
-- Teach failure modes — readers remember consequences, not instructions
-- The goal is independent judgment, not memorization
+STRUCTURE THAT FLOWS:
+- Open with something SPECIFIC: a fact, a story, a problem, a moment. Not a topic sentence.
+- Each paragraph earns the next. The reader should feel pulled forward.
+- Build understanding progressively. Don't dump, reveal.
+- Close by landing the insight. The reader should feel the click of understanding.
 
-When you explain WHY something behaves a certain way, the reader can predict outcomes and make decisions without re-reading. That's the target.
+NARRATIVE, NOT SECTIONS:
+- Write as ONE continuous piece. Not a series of disconnected sections.
+- Use headers SPARINGLY — only when a genuine topic shift helps the reader navigate.
+- Transitions aren't bridges between islands. Each idea should flow naturally into the next.
+- If you need a header every 300 words, you've structured it wrong.
 
----
-
-PROSE CRAFT (how the words land):
-
-Internalized from: King (On Writing), Strunk & White, Zinsser (On Writing Well), Le Guin (Steering the Craft), Pressfield.
-
-RHYTHM:
-- Vary sentence length deliberately. Short sentences punch. Longer sentences can unspool an idea, connecting thoughts in a way that carries the reader forward through complexity without losing them.
-- A paragraph of all short sentences feels staccato. All long loses momentum. Mix them.
-
-CLARITY:
-- Omit needless words. Every sentence does work.
-- Concrete nouns, active verbs.
-- Simple words: "important" not "fundamental." "Use" not "utilize."
-
-VOICE:
-- Write like yourself talking to someone smart who genuinely wants to understand.
-- Tell the truth. Don't dress it up.
-- Occasional dry humor when it fits naturally. Never forced.
+PROSE CRAFT:
+- Vary sentence length deliberately. Short punches. Longer ones unspool complexity.
+- Concrete nouns, active verbs, simple words.
+- Write like you're explaining to someone smart who genuinely wants to understand.
+- Occasional dry humor when it fits. Never forced.
 
 BANNED:
 - "When you think of..." "Consider the fact that..." "It's worth noting..."
 - "Imagine," "picture," "envision"
 - "Fundamental," "millennia," "myriad," "plethora," "utilize"
-- Puns. Dad jokes. Greeting card energy.
-- Lists where conditional logic ("if X, then Y") would serve better
-- Em dashes (—) and en dashes (–) — use commas, periods, or restructure instead
-- Hyphenated compound modifiers unless absolutely necessary for clarity
+- Generic topic sentences ("X is important because...")
+- Throat-clearing openings. Start with substance.
+- Em dashes — use commas, periods, or restructure
+- Forced segues ("Now let's turn to..." "Speaking of which...")
 
-The reader should finish a section feeling oriented, not just informed.
+WHAT PULLS READERS FORWARD:
+- Questions raised and answered
+- Specific examples that illuminate
+- The feeling of "I never thought about it that way"
+- Tension between what seems true and what is true
+- The promise of understanding something they didn't before
 `
 
-/**
- * POST /api/book/[id]/write - Write a specific chapter
- */
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -84,7 +83,7 @@ export async function POST(
 
     const supabase = getServerClient()
 
-    // Get project and approved tone
+    // Get project
     const { data: project } = await supabase
       .from('book_projects')
       .select('*')
@@ -116,7 +115,7 @@ export async function POST(
       .single()
 
     const prevEnding = prevChapter?.content 
-      ? prevChapter.content.split('\n').slice(-3).join('\n')
+      ? prevChapter.content.split('\n\n').slice(-2).join('\n\n')
       : null
 
     // Get next chapter title (for bridge)
@@ -127,199 +126,159 @@ export async function POST(
       .eq('chapter_number', chapterNumber + 1)
       .single()
 
-    // Get relevant chunks for this chapter - only high relevance, primary topic
+    // Get ALL chunks for this chapter with decent relevance
     const { data: chunks } = await supabase
       .from('book_chunks')
       .select('content, metadata, relevance_score')
       .eq('project_id', projectId)
       .contains('assigned_chapters', [chapterNumber])
-      .gte('relevance_score', 0.7) // Only chunks that are PRIMARILY about this topic
+      .gte('relevance_score', 0.6)
       .order('relevance_score', { ascending: false })
-      .limit(15)
+      .limit(20)
 
-    // Join chunks but remind AI to filter strictly
     const sourceContent = chunks?.map(c => c.content).join('\n\n---\n\n') || ''
     
-    // Add topic context to help AI filter
-    const topicReminder = `TOPIC: This chapter is about "${chapter.title}" ONLY. 
-Ignore any information in the source material that's about other topics.
-If source material mentions other subjects, skip those parts.`
-
     console.log(`[Write] Chapter ${chapterNumber}: "${chapter.title}" - ${chunks?.length || 0} source chunks`)
 
-    // Step 1: Generate chapter outline with Claude - focus on mental model building
-    const outlineResult = await generateObject({
+    // ========================================================================
+    // STEP 1: NARRATIVE PLANNING
+    // ========================================================================
+    
+    const narrativePlan = await generateObject({
       model: anthropic('claude-sonnet-4-5-20250929'),
-      schema: ChapterOutlineSchema,
-      system: `You are planning a chapter for a practical non-fiction guide.
+      schema: NarrativePlanSchema,
+      system: `You are planning the narrative arc of a book chapter.
 
-Your goal is to help the reader BUILD A MENTAL MODEL, not memorize facts.
+Your job is to find the STORY in the material — not just what topics to cover, but:
+- What question does the reader have that this chapter answers?
+- What journey takes them from not-knowing to understanding?
+- What specific example, story, or thread can tie it all together?
 
-Structure the chapter so that:
-1. CLASSIFICATION first — what kind of thing is this? What category does it belong to?
-2. STRUCTURE/PROPERTIES — how is it made? What defines its behavior?
-3. BEHAVIOR UNDER USE — what happens when you use it? Strengths and failure modes.
-4. CARE/HANDLING — now instructions make sense because the reader understands WHY
-
-This order matters. Rules feel arbitrary without understanding. Properties first, instructions second.
-
-${topicReminder}`,
+Think like a documentary filmmaker, not a textbook writer. What's the through-line?`,
       prompt: `BOOK: "${project.title}"
 CHAPTER ${chapterNumber}: "${chapter.title}"
 
-${prevEnding ? `PREVIOUS CHAPTER ENDED WITH:\n${prevEnding}\n` : ''}
-${nextChapter ? `NEXT CHAPTER IS: "${nextChapter.title}"` : 'This is the final chapter.'}
+${prevChapter ? `PREVIOUS CHAPTER: "${prevChapter.title}"` : 'This is the first chapter.'}
+${nextChapter ? `NEXT CHAPTER: "${nextChapter.title}"` : 'This is the final chapter.'}
 
-SOURCE MATERIAL (filter for ${chapter.title} only):
-${sourceContent.slice(0, 15000)}
+SOURCE MATERIAL:
+${sourceContent.slice(0, 20000)}
 
-Create an outline that builds understanding progressively:
-- Start with what this thing IS (classification, origin)
-- Move to how it WORKS (structure, properties)
-- Then how it BEHAVES (under use, stress, time)
-- End with how to HANDLE it (care that preserves its nature)
+Plan this chapter's narrative:
+1. What's the ONE central question this chapter answers?
+2. What specific hook opens it? (A fact, story, or observation — not "This chapter will discuss...")
+3. What 3-5 moves does the chapter make to answer the question? (Not topics — moves. "First we see X, which makes us wonder Y, which leads to Z...")
+4. What does the reader understand by the end that they didn't before?
+5. What recurring example or thread ties it together?
 
-The reader should finish understanding WHY things work the way they do, not just WHAT to do.
-
-Target 1500-2500 words total. Focus on "${chapter.title}" only.`,
+Make the material INTERESTING. Find the story.`,
     })
 
-    const outline = outlineResult.object
+    const plan = narrativePlan.object
 
-    // Save outline
+    // Save the narrative plan
     await supabase
       .from('book_chapters')
       .update({ 
-        hook: outline.openingPoint,
-        outline: outline,
+        hook: plan.openingHook,
+        outline: plan,
         status: 'writing',
       })
       .eq('id', chapter.id)
 
-    // Step 2: Write the chapter with GPT-4o
-    const sections: string[] = []
+    // ========================================================================
+    // STEP 2: WRITE THE FULL CHAPTER IN ONE PASS
+    // ========================================================================
 
-    // Write the opening
-    const hookResult = await generateText({
+    const journeyDescription = plan.journey.map((move, i) => `${i + 1}. ${move}`).join('\n')
+
+    const draftResult = await generateText({
       model: openai('gpt-4o'),
       system: `You are writing a chapter for "${project.title}".
 
 ${WRITING_STYLE}
 
-${topicReminder}
+${project.approved_tone_sample ? `APPROVED TONE (match this voice):\n${project.approved_tone_sample}\n---` : ''}
 
-${project.approved_tone_sample ? `APPROVED TONE SAMPLE:\n${project.approved_tone_sample.slice(0, 1000)}` : ''}`,
-      prompt: `Write the opening of Chapter ${chapterNumber}: "${chapter.title}"
+CRITICAL: Write the ENTIRE chapter as ONE continuous, flowing piece. 
+- Use headers ONLY if absolutely necessary for navigation (maybe 1-2, or none).
+- Every paragraph should flow naturally into the next.
+- Don't write disconnected sections. Write a cohesive narrative.`,
+      prompt: `Write Chapter ${chapterNumber}: "${chapter.title}"
 
-MAIN POINT TO ESTABLISH: ${outline.openingPoint}
+NARRATIVE PLAN:
+- Central Question: ${plan.centralQuestion}
+- Opening Hook: ${plan.openingHook}
+- Journey:
+${journeyDescription}
+- Payoff: ${plan.payoff}
+- Through-line: ${plan.throughLine}
 
-${prevEnding ? `Previous chapter ended with: "${prevEnding}"\nConnect briefly, then move on.` : ''}
+${prevEnding ? `PREVIOUS CHAPTER ENDED WITH:\n"${prevEnding}"\n\nTransition naturally from there.\n` : ''}
 
-SOURCE MATERIAL (use ONLY information about ${chapter.title}):
-${sourceContent.slice(0, 5000)}
+${nextChapter ? `NEXT CHAPTER: "${nextChapter.title}" — Set this up subtly at the end.\n` : ''}
 
-Write 200-300 words about "${chapter.title}" ONLY. Start with your main point. No "imagine" or "picture" openings.`,
+SOURCE MATERIAL (ground everything in this):
+${sourceContent.slice(0, 25000)}
+
+Write 1500-2500 words. 
+
+START with the hook — something specific and interesting, not "This chapter discusses..."
+FOLLOW the journey — each move should flow naturally into the next.
+END with the payoff — the reader should feel the insight land.
+WEAVE in the through-line — use it to create cohesion.
+
+Write it as one continuous piece. Minimal or no headers. Let it flow.`,
     })
 
-    sections.push(hookResult.text)
+    let chapterContent = draftResult.text
 
-    // Write each section with FULL chapter context for continuity
-    for (let i = 0; i < outline.sections.length; i++) {
-      const section = outline.sections[i]
-      
-      // Build context: what's been written so far in this chapter
-      const writtenSoFar = sections.join('\n\n')
-      const lastParagraph = sections[sections.length - 1].split('\n\n').slice(-1)[0] || ''
-      
-      // What sections are coming next (for flow awareness)
-      const upcomingSections = outline.sections.slice(i + 1).map(s => s.title)
+    // ========================================================================
+    // STEP 3: EDITORIAL PASS — RHYTHM, CLARITY, COHESION
+    // ========================================================================
 
-      const sectionResult = await generateText({
-        model: openai('gpt-4o'),
-        system: `You are writing a section for a practical guide.
+    const editedResult = await generateText({
+      model: anthropic('claude-sonnet-4-5-20250929'),
+      system: `You are an editor improving a book chapter for flow, rhythm, and clarity.
 
-${WRITING_STYLE}
+You CAN:
+- Restructure sentences for better flow
+- Remove redundancy
+- Strengthen weak transitions
+- Vary sentence length for rhythm
+- Cut throat-clearing phrases
+- Remove unnecessary headers if they interrupt flow
+- Tighten prose (cut needless words)
 
-${topicReminder}
-
-CONTINUITY IS CRITICAL:
-- Read what's been written so far. Your section must flow naturally from it.
-- Don't repeat information already covered.
-- Don't use jarring transitions. The chapter should read as one cohesive piece.
-- You're continuing a conversation, not starting a new one.`,
-        prompt: `CHAPTER ${chapterNumber}: "${chapter.title}"
-SECTION: "${section.title}"
-
-WHAT'S BEEN WRITTEN SO FAR IN THIS CHAPTER:
----
-${writtenSoFar.slice(-2000)}
----
-
-LAST PARAGRAPH (transition from here):
-"${lastParagraph}"
-
-${upcomingSections.length > 0 ? `SECTIONS STILL TO COME: ${upcomingSections.join(', ')}` : 'This is the final section before the closing.'}
-
-KEY POINTS TO COVER (about ${chapter.title} only):
-${section.keyPoints.map(p => `- ${p}`).join('\n')}
-
-SOURCE MATERIAL (ONLY use information about ${chapter.title}):
-${sourceContent.slice(0, 5000)}
-
-Write ${section.targetWords} words about "${chapter.title}" ONLY. Continue naturally from where the chapter left off. Don't repeat what's already been said. Ignore any source material about other topics.`,
-      })
-
-      sections.push(`\n\n## ${section.title}\n\n${sectionResult.text}`)
-    }
-
-    // Write closing with practical takeaway
-    const closingResult = await generateText({
-      model: openai('gpt-4o'),
-      system: `You are ending a chapter with a practical summary.`,
-      prompt: `End Chapter ${chapterNumber}: "${chapter.title}"
-
-CLOSING POINT: ${outline.closingPoint}
-${nextChapter ? `NEXT CHAPTER: "${nextChapter.title}"` : 'This is the final chapter.'}
-
-Write 2-4 sentences. Summarize the practical takeaway. ${nextChapter ? 'Set up what\'s next in one sentence.' : ''}`,
-    })
-
-    sections.push(`\n\n${closingResult.text}`)
-
-    // Combine all sections
-    const rawContent = `# Chapter ${chapterNumber}: ${chapter.title}\n\n${sections.join('')}`
-    
-    // CONTINUITY PASS: Smooth transitions and fix abrupt changes
-    const smoothedResult = await generateText({
-      model: openai('gpt-4o'),
-      system: `You are editing a chapter for flow and continuity.
-
-Your ONLY job is to smooth transitions between sections. Fix:
-- Abrupt topic changes (add a bridging sentence if needed)
-- Repeated information (remove redundancy)
-- Jarring sentence-to-sentence jumps
-
-DO NOT:
-- Rewrite content
-- Add new information
-- Change the meaning or facts
-- Remove substantial content
+You CANNOT:
+- Add new factual information
+- Change the fundamental argument
+- Alter the tone significantly
 - Make it longer
 
-Return the chapter with smooth, natural transitions. Changes should be subtle - just enough to make it read like one cohesive piece.`,
-      prompt: `Smooth the transitions in this chapter. Make minimal edits for continuity.
+The chapter should read like ONE conversation, not stitched-together sections.`,
+      prompt: `Edit this chapter for flow, rhythm, and clarity. Make it read as one cohesive piece.
 
-${rawContent}`,
+${chapterContent}
+
+Return the edited chapter. Focus on:
+1. Does each paragraph flow naturally into the next?
+2. Is there sentence variety (short punches mixed with longer explanations)?
+3. Are there any jarring transitions or repeated ideas?
+4. Do any headers interrupt the flow unnecessarily?
+5. Are there any throat-clearing phrases to cut?
+
+Return the improved chapter.`,
     })
 
-    const fullContent = smoothedResult.text || rawContent
-    const wordCount = fullContent.split(/\s+/).length
+    const finalContent = `# Chapter ${chapterNumber}: ${chapter.title}\n\n${editedResult.text}`
+    const wordCount = finalContent.split(/\s+/).length
 
     // Save the completed chapter
     await supabase
       .from('book_chapters')
       .update({
-        content: fullContent,
+        content: finalContent,
         word_count: wordCount,
         status: 'done',
       })
@@ -331,7 +290,7 @@ ${rawContent}`,
       success: true,
       chapterNumber,
       wordCount,
-      content: fullContent,
+      content: finalContent,
     })
 
   } catch (error) {

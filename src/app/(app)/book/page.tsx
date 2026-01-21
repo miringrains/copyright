@@ -816,6 +816,7 @@ function WriteStep({
   onWriteAll,
   onApproveChapter,
   onRegenerateChapter,
+  onViewChapter,
   onExportChapter,
   onBack,
   onContinue,
@@ -833,6 +834,7 @@ function WriteStep({
   onWriteAll: () => void
   onApproveChapter: () => void
   onRegenerateChapter: () => void
+  onViewChapter: (chapterNum: number) => void
   onExportChapter?: (chapterNum: number) => void
   onBack: () => void
   onContinue: () => void
@@ -992,9 +994,9 @@ function WriteStep({
       )}
 
       {/* Chapter List */}
-      {!isPreviewing && !isWriting && !isComplete && (
+      {!isPreviewing && !isWriting && (
         <div className="space-y-1">
-          {pendingCount > 1 && (
+          {pendingCount > 1 && !isComplete && (
             <div className="flex justify-end mb-2">
               <Button 
                 variant="ghost" 
@@ -1010,34 +1012,40 @@ function WriteStep({
             const chapterProgress = progress.find(p => p.chapter === chapter.number)
             const status = chapterProgress?.status || 'pending'
             const isNext = chapter.number === nextPending?.number
+            const isDone = status === 'done'
             
             return (
               <div
                 key={chapter.number}
-                className={`flex items-center gap-3 py-2 px-1 rounded transition-colors ${
+                className={`flex items-center gap-3 py-2 px-2 rounded transition-colors ${
                   isNext ? 'bg-muted' : ''
-                }`}
+                } ${isDone ? 'hover:bg-muted/50 cursor-pointer group' : ''}`}
+                onClick={isDone ? () => onViewChapter(chapter.number) : undefined}
               >
                 <span className="w-5 text-right text-sm text-muted-foreground tabular-nums">
                   {chapter.number}
                 </span>
                 <span className="flex-1 text-sm">{chapter.title}</span>
-                {status === 'done' && (
+                {isDone && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
                       {chapterProgress?.wordCount?.toLocaleString()}
                     </span>
                     <Check className="h-3.5 w-3.5 text-primary" />
+                    <Eye className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 )}
-                {isNext && (
+                {isNext && !isComplete && (
                   <Button 
                     size="sm" 
                     variant="secondary"
-                    onClick={() => onWriteChapter(chapter.number)}
+                    onClick={(e) => { e.stopPropagation(); onWriteChapter(chapter.number); }}
                   >
                     Write
                   </Button>
+                )}
+                {status === 'pending' && !isNext && (
+                  <span className="text-xs text-muted-foreground">pending</span>
                 )}
               </div>
             )
@@ -1045,11 +1053,12 @@ function WriteStep({
         </div>
       )}
 
-      {/* Complete state */}
-      {isComplete && (
-        <div className="text-center py-8">
-          <Check className="h-6 w-6 text-primary mx-auto mb-3" />
-          <p className="font-medium">All chapters complete</p>
+      {/* Complete state - show message but keep chapter list visible */}
+      {isComplete && !isPreviewing && (
+        <div className="text-center py-4 border-t mt-4">
+          <p className="text-sm text-muted-foreground">
+            All chapters complete. Click any chapter to view or regenerate.
+          </p>
         </div>
       )}
 
@@ -1068,12 +1077,12 @@ function WriteStep({
               <RefreshCw className="mr-1 h-4 w-4" /> Regenerate
             </Button>
             <Button onClick={onApproveChapter} className="flex-1">
-              Approve <ChevronRight className="ml-1 h-4 w-4" />
+              {progress.find(p => p.chapter === currentChapterNumber)?.status === 'done' ? 'Done' : 'Approve'} <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </>
         ) : isComplete ? (
           <Button onClick={onContinue} className="flex-1">
-            Continue <ChevronRight className="ml-1 h-4 w-4" />
+            Continue to Export <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         ) : null}
       </div>
@@ -1426,6 +1435,15 @@ export default function BookPage() {
     }
   }
 
+  // View a completed chapter (load from progress state)
+  const handleViewChapter = (chapterNum: number) => {
+    const prog = chapterProgress.find(p => p.chapter === chapterNum)
+    if (prog?.content) {
+      setCurrentChapter(chapterNum)
+      setCurrentChapterContent(prog.content)
+    }
+  }
+
   // Export single chapter as PDF (opens print-ready HTML in new tab)
   const handleExportChapter = async (chapterNum: number) => {
     const chapter = toc.find(c => c.number === chapterNum)
@@ -1715,6 +1733,7 @@ export default function BookPage() {
             onWriteAll={handleWriteAll}
             onApproveChapter={handleApproveChapter}
             onRegenerateChapter={handleRegenerateChapter}
+            onViewChapter={handleViewChapter}
             onExportChapter={handleExportChapter}
             onBack={() => setStep('preview')}
             onContinue={() => setStep('export')}
