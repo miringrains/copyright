@@ -153,11 +153,36 @@ export async function POST(
 
     const sourceContent = chunks?.map(c => c.content).join('\n\n---\n\n') || ''
     
-    console.log(`[Write] Chapter ${chapterNumber}: "${chapter.title}" - ${chunks?.length || 0} source chunks`)
+    // Check if user defined sections for this chapter
+    const userSections = chapter.sections as { id: string; title: string }[] | null
+    const hasUserSections = userSections && userSections.length > 0
+    
+    console.log(`[Write] Chapter ${chapterNumber}: "${chapter.title}" - ${chunks?.length || 0} source chunks${hasUserSections ? `, ${userSections.length} user-defined sections` : ''}`)
 
     // ========================================================================
     // STEP 1: NARRATIVE PLANNING
     // ========================================================================
+    
+    // If user defined sections, use them as the structure
+    const sectionsPrompt = hasUserSections 
+      ? `USE THESE EXACT SECTIONS (user-defined):
+${userSections.map((s, i) => `${i + 1}. ${s.title}`).join('\n')}
+
+For each of these sections:
+- Determine its purpose (what it accomplishes)
+- Plan 3-5 specific points to cover
+- Assign a target word count (total should be 3000-5000 words)`
+      : `Plan 4-7 sections that cover:
+   - An engaging introduction
+   - Understanding the subject (history, how it works, what makes it unique)
+   - Practical application (where you find it, how to handle it, care tips, common mistakes)
+   - A satisfying close
+
+For each section, specify:
+- A clear title
+- Its purpose (what it accomplishes)
+- 3-5 specific points to cover
+- Target word count`
     
     const narrativePlan = await generateObject({
       model: anthropic('claude-sonnet-4-5-20250929'),
@@ -169,11 +194,11 @@ Your job is to structure a FULL chapter (3000-5000 words) that:
 2. Builds understanding — the "why" behind the subject (history, science, how it works)
 3. Delivers practical value — where you find this in real life, how to handle it, what to do
 
-A good chapter has 4-7 sections. Structure typically follows:
+${hasUserSections ? 'The user has defined specific sections for this chapter. USE THEM EXACTLY as provided, but fill in the details (purpose, key content, word counts).' : `A good chapter has 4-7 sections. Structure typically follows:
 - HOOK/INTRO: Engaging opening that establishes relevance (300-500 words)
 - UNDERSTANDING sections: History, how it works, what makes it unique (1000-2000 words total)
 - PRACTICAL sections: Where you find it, how to care for it, common mistakes, best practices (1000-2000 words total)
-- CLOSING: Landing the insight, what to remember (200-400 words)
+- CLOSING: Landing the insight, what to remember (200-400 words)`}
 
 Each section needs a clear purpose and should flow naturally into the next.`,
       prompt: `BOOK: "${project.title}"
@@ -185,23 +210,13 @@ ${nextChapter ? `NEXT CHAPTER: "${nextChapter.title}"` : 'This is the final chap
 SOURCE MATERIAL:
 ${sourceContent.slice(0, 25000)}
 
-Plan this chapter with 4-7 sections:
+PLAN THIS CHAPTER:
 
 1. What's the central question this chapter answers?
 2. What specific hook opens it? (A vivid moment, surprising fact, or relatable problem)
-3. Plan 4-7 sections that cover:
-   - An engaging introduction
-   - Understanding the subject (history, how it works, what makes it unique)
-   - Practical application (where you find it, how to handle it, care tips, common mistakes)
-   - A satisfying close
+3. ${sectionsPrompt}
 4. What does the reader understand by the end?
 5. What thread ties it together?
-
-For each section, specify:
-- A clear title
-- Its purpose (what it accomplishes)
-- 3-5 specific points to cover
-- Target word count
 
 Total chapter should be 3000-5000 words. Make it comprehensive and genuinely useful.`,
     })

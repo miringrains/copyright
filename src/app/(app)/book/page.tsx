@@ -7,6 +7,7 @@ import {
   ArrowLeft, RefreshCw, ChevronDown, ChevronUp, Eye, BookOpenCheck
 } from 'lucide-react'
 import { PrintPreview } from '@/components/book/print-preview'
+import { ChapterEditor, ContentBlock, blocksToMarkdown } from '@/components/book/chapter-editor'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,10 +21,16 @@ import { Progress } from '@/components/ui/progress'
 
 type Step = 'setup' | 'upload' | 'organize' | 'review_chunks' | 'preview' | 'write' | 'export'
 
+interface TOCSection {
+  id: string
+  title: string
+}
+
 interface TOCChapter {
   number: number
   title: string
   description?: string
+  sections?: TOCSection[]
 }
 
 interface UploadedFile {
@@ -246,6 +253,135 @@ function ProjectList({
 // STEP: SETUP
 // ============================================================================
 
+function ChapterItem({
+  chapter,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  chapter: TOCChapter
+  index: number
+  onUpdate: (chapter: TOCChapter) => void
+  onRemove: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  
+  const addSection = () => {
+    const newSection: TOCSection = {
+      id: Math.random().toString(36).slice(2),
+      title: '',
+    }
+    onUpdate({
+      ...chapter,
+      sections: [...(chapter.sections || []), newSection],
+    })
+    setExpanded(true)
+  }
+  
+  const updateSection = (sectionIndex: number, title: string) => {
+    const sections = [...(chapter.sections || [])]
+    sections[sectionIndex] = { ...sections[sectionIndex], title }
+    onUpdate({ ...chapter, sections })
+  }
+  
+  const removeSection = (sectionIndex: number) => {
+    const sections = (chapter.sections || []).filter((_, i) => i !== sectionIndex)
+    onUpdate({ ...chapter, sections })
+  }
+  
+  const hasSections = chapter.sections && chapter.sections.length > 0
+  
+  return (
+    <div className="border rounded-lg">
+      {/* Chapter header */}
+      <div className="flex items-center gap-2 p-2 group">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground"
+        >
+          {expanded ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+        <span className="w-6 text-right text-sm text-muted-foreground tabular-nums">
+          {chapter.number}
+        </span>
+        <Input
+          value={chapter.title}
+          onChange={(e) => onUpdate({ ...chapter, title: e.target.value })}
+          placeholder="Chapter title"
+          className="flex-1 border-0 h-8 px-2 focus-visible:ring-0 bg-transparent"
+        />
+        {hasSections && (
+          <span className="text-xs text-muted-foreground px-2">
+            {chapter.sections!.length} section{chapter.sections!.length !== 1 ? 's' : ''}
+          </span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={addSection}
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          title="Add section"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onRemove}
+          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      
+      {/* Sections (expanded view) */}
+      {expanded && (
+        <div className="border-t bg-muted/30 p-2 pl-10 space-y-1">
+          {(chapter.sections || []).length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">
+              No sections yet. Click + to add sections within this chapter.
+            </p>
+          ) : (
+            chapter.sections!.map((section, sectionIndex) => (
+              <div key={section.id} className="flex items-center gap-2 group/section">
+                <span className="text-xs text-muted-foreground w-8">
+                  {chapter.number}.{sectionIndex + 1}
+                </span>
+                <Input
+                  value={section.title}
+                  onChange={(e) => updateSection(sectionIndex, e.target.value)}
+                  placeholder="Section title"
+                  className="flex-1 h-7 text-sm border-0 border-b rounded-none px-1 focus-visible:ring-0 bg-transparent"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeSection(sectionIndex)}
+                  className="h-6 w-6 opacity-0 group-hover/section:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={addSection}
+            className="text-xs text-muted-foreground h-7 mt-1"
+          >
+            <Plus className="h-3 w-3 mr-1" /> Add section
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SetupStep({
   title,
   subtitle,
@@ -268,39 +404,68 @@ function SetupStep({
   const parseTOC = useCallback(() => {
     const lines = tocText.split('\n').filter(l => l.trim())
     const chapters: TOCChapter[] = []
+    let currentChapter: TOCChapter | null = null
     
-    lines.forEach((line, i) => {
-      const match = line.match(/^(?:Chapter\s+)?(\d+)[.:)\s]+(.+)$/i) ||
-                   line.match(/^(\d+)[.:)\s]+(.+)$/i)
+    lines.forEach((line) => {
+      // Check for chapter (starts with number or "Chapter")
+      const chapterMatch = line.match(/^(?:Chapter\s+)?(\d+)[.:)\s]+(.+)$/i) ||
+                          line.match(/^(\d+)[.:)\s]+(.+)$/i)
       
-      if (match) {
-        chapters.push({
-          number: parseInt(match[1]),
-          title: match[2].trim(),
+      // Check for section (starts with whitespace/indent, or dash/bullet)
+      const isIndented = /^\s{2,}/.test(line) || /^[-•]\s+/.test(line)
+      const sectionText = line.replace(/^[\s\-•]+/, '').trim()
+      
+      if (chapterMatch) {
+        // Save previous chapter
+        if (currentChapter) {
+          chapters.push(currentChapter)
+        }
+        currentChapter = {
+          number: parseInt(chapterMatch[1]),
+          title: chapterMatch[2].trim(),
+          sections: [],
+        }
+      } else if (isIndented && currentChapter && sectionText) {
+        // Add as section to current chapter
+        currentChapter.sections!.push({
+          id: Math.random().toString(36).slice(2),
+          title: sectionText,
         })
-      } else if (line.trim()) {
-        chapters.push({
-          number: i + 1,
+      } else if (line.trim() && !currentChapter) {
+        // First line without number, treat as chapter
+        currentChapter = {
+          number: chapters.length + 1,
           title: line.trim(),
-        })
+          sections: [],
+        }
       }
     })
+    
+    // Don't forget the last chapter
+    if (currentChapter) {
+      chapters.push(currentChapter)
+    }
     
     onTOCChange(chapters)
   }, [tocText, onTOCChange])
 
-  const updateChapter = (index: number, field: keyof TOCChapter, value: string | number) => {
+  const updateChapter = (index: number, chapter: TOCChapter) => {
     const updated = [...toc]
-    updated[index] = { ...updated[index], [field]: value }
+    updated[index] = chapter
     onTOCChange(updated)
   }
 
   const removeChapter = (index: number) => {
-    onTOCChange(toc.filter((_, i) => i !== index))
+    const updated = toc.filter((_, i) => i !== index)
+    // Renumber chapters
+    updated.forEach((ch, i) => {
+      ch.number = i + 1
+    })
+    onTOCChange(updated)
   }
 
   const addChapter = () => {
-    onTOCChange([...toc, { number: toc.length + 1, title: '' }])
+    onTOCChange([...toc, { number: toc.length + 1, title: '', sections: [] }])
   }
 
   const isValid = title.trim() && toc.length > 0 && toc.every(c => c.title.trim())
@@ -337,7 +502,14 @@ function SetupStep({
 
       {/* Table of Contents */}
       <div className="space-y-4">
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Chapters</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Chapters</Label>
+          {toc.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Click chapter to add sections
+            </span>
+          )}
+        </div>
         
         {toc.length === 0 ? (
           <div className="space-y-3">
@@ -345,44 +517,37 @@ function SetupStep({
               placeholder={`Paste your table of contents:
 
 1. Introduction
-2. Getting Started  
-3. Core Concepts
-4. Advanced Techniques
-5. Conclusion`}
+2. Getting Started
+  - Overview
+  - Key Concepts
+3. Core Topics
+  - Topic A
+  - Topic B
+4. Conclusion
+
+(Indented lines become sections)`}
               value={tocText}
               onChange={(e) => setTocText(e.target.value)}
-              className="min-h-[180px] font-mono text-sm resize-none"
+              className="min-h-[200px] font-mono text-sm resize-none"
             />
             <Button onClick={parseTOC} disabled={!tocText.trim()} variant="secondary" className="w-full">
               Parse Chapters
             </Button>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {toc.map((chapter, i) => (
-              <div key={i} className="flex items-center gap-2 group">
-                <span className="w-6 text-right text-sm text-muted-foreground tabular-nums">
-                  {chapter.number}
-                </span>
-                <Input
-                  value={chapter.title}
-                  onChange={(e) => updateChapter(i, 'title', e.target.value)}
-                  placeholder="Chapter title"
-                  className="flex-1 border-0 border-b rounded-none px-2 h-9 focus-visible:ring-0"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeChapter(i)}
-                  className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              <ChapterItem
+                key={i}
+                chapter={chapter}
+                index={i}
+                onUpdate={(updated) => updateChapter(i, updated)}
+                onRemove={() => removeChapter(i)}
+              />
             ))}
             <div className="flex gap-2 pt-2">
               <Button variant="ghost" size="sm" onClick={addChapter} className="text-muted-foreground">
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Chapter
               </Button>
               <Button
                 variant="ghost"
@@ -390,7 +555,7 @@ function SetupStep({
                 onClick={() => { onTOCChange([]); setTocText('') }}
                 className="text-muted-foreground"
               >
-                Clear
+                Clear All
               </Button>
             </div>
           </div>
@@ -817,6 +982,7 @@ function WriteStep({
   onApproveChapter,
   onRegenerateChapter,
   onViewChapter,
+  onSaveContent,
   onExportChapter,
   onBack,
   onContinue,
@@ -835,6 +1001,7 @@ function WriteStep({
   onApproveChapter: () => void
   onRegenerateChapter: () => void
   onViewChapter: (chapterNum: number) => void
+  onSaveContent: (chapterNum: number, blocks: ContentBlock[]) => void
   onExportChapter?: (chapterNum: number) => void
   onBack: () => void
   onContinue: () => void
@@ -954,11 +1121,11 @@ function WriteStep({
       
       <Progress value={progressPercent} className="h-1" />
 
-      {/* Chapter Preview */}
-      {isPreviewing && (
+      {/* Chapter Preview/Editor */}
+      {isPreviewing && projectId && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm font-medium">
               Chapter {currentChapterNumber}: {chapters.find(c => c.number === currentChapterNumber)?.title}
             </div>
             <Button
@@ -971,13 +1138,17 @@ function WriteStep({
               Export PDF
             </Button>
           </div>
-          <div 
-            className="book-preview max-h-[350px] overflow-y-auto"
-            style={{ fontFamily: '"adobe-garamond-pro", Georgia, serif' }}
-            dangerouslySetInnerHTML={{ 
-              __html: formatChapterContent(currentChapterContent || '') 
-            }}
-          />
+          <div className="text-xs text-muted-foreground mb-2">
+            Hover between paragraphs to insert images
+          </div>
+          <div className="max-h-[400px] overflow-y-auto border rounded-lg p-4 bg-background">
+            <ChapterEditor
+              projectId={projectId}
+              chapterNumber={currentChapterNumber!}
+              initialContent={(currentChapterContent || '').replace(/^# Chapter \d+:.+\n\n?/m, '')}
+              onSave={(blocks) => onSaveContent(currentChapterNumber!, blocks)}
+            />
+          </div>
         </div>
       )}
 
@@ -1444,6 +1615,37 @@ export default function BookPage() {
     }
   }
 
+  // Save content with images
+  const handleSaveContent = async (chapterNum: number, blocks: ContentBlock[]) => {
+    if (!projectId) return
+    
+    try {
+      const response = await fetch(`/api/book/${projectId}/chapters/${chapterNum}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentBlocks: blocks }),
+      })
+      
+      if (response.ok) {
+        // Update local progress state with new content
+        const markdown = blocksToMarkdown(blocks)
+        const chapterTitle = toc.find(c => c.number === chapterNum)?.title || ''
+        const fullContent = `# Chapter ${chapterNum}: ${chapterTitle}\n\n${markdown}`
+        
+        setChapterProgress(prev => 
+          prev.map(p => 
+            p.chapter === chapterNum 
+              ? { ...p, content: fullContent, wordCount: fullContent.split(/\s+/).length }
+              : p
+          )
+        )
+        setCurrentChapterContent(fullContent)
+      }
+    } catch (error) {
+      console.error('Failed to save content:', error)
+    }
+  }
+
   // Export single chapter as PDF (opens print-ready HTML in new tab)
   const handleExportChapter = async (chapterNum: number) => {
     const chapter = toc.find(c => c.number === chapterNum)
@@ -1734,6 +1936,7 @@ export default function BookPage() {
             onApproveChapter={handleApproveChapter}
             onRegenerateChapter={handleRegenerateChapter}
             onViewChapter={handleViewChapter}
+            onSaveContent={handleSaveContent}
             onExportChapter={handleExportChapter}
             onBack={() => setStep('preview')}
             onContinue={() => setStep('export')}

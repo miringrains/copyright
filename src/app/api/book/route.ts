@@ -103,11 +103,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create chapter records
-    const chapters = tableOfContents.map((chapter: { number: number; title: string }) => ({
+    // Create chapter records (including sections if provided)
+    const chapters = tableOfContents.map((chapter: { 
+      number: number
+      title: string
+      sections?: { id: string; title: string }[]
+    }) => ({
       project_id: project.id,
       chapter_number: chapter.number,
       title: chapter.title,
+      sections: chapter.sections || [],
       status: 'pending',
     }))
 
