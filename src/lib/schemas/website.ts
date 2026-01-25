@@ -104,11 +104,11 @@ export type WebsiteRequest = z.infer<typeof WebsiteRequestSchema>
 
 export const WebsiteCopySectionSchema = z.object({
   type: z.string().describe('Section type (hero, about, etc.)'),
-  headline: z.string().optional(),
-  subheadline: z.string().optional(),
-  body: z.string(),
-  cta: z.string().optional(),
-  notes: z.string().optional().describe('Why this works'),
+  headline: z.string().describe('Headline for this section, or empty string if not applicable'),
+  subheadline: z.string().describe('Subheadline, or empty string if not applicable'),
+  body: z.string().describe('Main body copy'),
+  cta: z.string().describe('Call to action text, or empty string if not applicable'),
+  notes: z.string().describe('Why this works - brief explanation'),
 })
 export type WebsiteCopySection = z.infer<typeof WebsiteCopySectionSchema>
 
