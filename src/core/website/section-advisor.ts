@@ -57,7 +57,7 @@ interface SectionWithAssessment extends AuditedSection {
 }
 
 /**
- * Assess all sections in a site audit
+ * Assess all sections in a site audit (batched for efficiency)
  */
 export async function assessSections(
   audit: SiteAudit,
@@ -67,19 +67,15 @@ export async function assessSections(
 ): Promise<SiteAudit> {
   onProgress?.(`Assessing ${audit.sections.length} sections...`)
 
-  const assessedSections: SectionWithAssessment[] = []
+  // First, do rule-based slop check on all sections
+  const sectionsWithSlop = audit.sections.map(section => ({
+    ...section,
+    slopIssues: checkForSlop(section),
+  }))
 
-  for (const section of audit.sections) {
-    onProgress?.(`Analyzing ${section.type} section...`)
-    
-    const assessment = await assessSingleSection(
-      section,
-      factInventory,
-      domainProfile
-    )
-    
-    assessedSections.push(assessment)
-  }
+  // Then batch all AI assessments into ONE call
+  onProgress?.('Running strategic assessment...')
+  const assessedSections = await batchAssessSections(sectionsWithSlop, factInventory, domainProfile)
 
   // Count results
   const keepCount = assessedSections.filter(s => s.assessment === 'keep').length
@@ -92,6 +88,61 @@ export async function assessSections(
     ...audit,
     sections: assessedSections,
   }
+}
+
+/**
+ * Batch assess all sections in a single API call
+ */
+async function batchAssessSections(
+  sections: Array<AuditedSection & { slopIssues: string[] }>,
+  factInventory: FactInventory,
+  domainProfile?: DomainProfile
+): Promise<SectionWithAssessment[]> {
+  const BatchAssessmentSchema = z.object({
+    assessments: z.array(z.object({
+      sectionIndex: z.number(),
+      assessment: z.enum(['keep', 'improve', 'rewrite']),
+      issues: z.array(z.string()),
+    })),
+  })
+
+  const factsContext = factInventory.allFactsList.length > 0
+    ? `KNOWN FACTS:\n${factInventory.allFactsList.map(f => `- ${f}`).join('\n')}`
+    : 'No specific facts provided.'
+
+  const sectionsContext = sections.map((s, i) => `
+SECTION ${i}: ${s.type.toUpperCase()} (${s.location})
+${s.currentCopy.headline ? `Headline: "${s.currentCopy.headline}"` : ''}
+${s.currentCopy.subheadline ? `Subheadline: "${s.currentCopy.subheadline}"` : ''}
+Body: "${s.currentCopy.body.slice(0, 500)}${s.currentCopy.body.length > 500 ? '...' : ''}"
+${s.currentCopy.cta ? `CTA: "${s.currentCopy.cta}"` : ''}
+Pre-detected issues: ${s.slopIssues.length > 0 ? s.slopIssues.join(', ') : 'none'}
+`).join('\n---\n')
+
+  const result = await generateObject({
+    model: anthropic('claude-sonnet-4-5-20250929'),
+    schema: BatchAssessmentSchema,
+    system: ASSESSMENT_SYSTEM,
+    prompt: `Assess ALL of these sections at once. For each, determine: KEEP, IMPROVE, or REWRITE.
+
+${factsContext}
+
+${sectionsContext}
+
+Return an assessment for each section by index (0-${sections.length - 1}).`,
+  })
+
+  // Map results back to sections
+  return sections.map((section, i) => {
+    const assessment = result.object.assessments.find(a => a.sectionIndex === i)
+    return {
+      type: section.type,
+      location: section.location,
+      currentCopy: section.currentCopy,
+      assessment: assessment?.assessment || 'improve',
+      issues: [...section.slopIssues, ...(assessment?.issues || [])],
+    }
+  })
 }
 
 /**
