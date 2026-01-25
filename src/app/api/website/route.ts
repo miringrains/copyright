@@ -2,7 +2,9 @@
  * Website Copy Advisor API
  * 
  * POST /api/website
- * Streams the advisor pipeline: audit → inventory → assess → generate
+ * Returns the advisor output as JSON (not streaming)
+ * Progress updates sent via response headers are not practical,
+ * so this is a simple request/response.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -25,77 +27,41 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json({ error: 'prompt is required (min 10 chars)' }, { status: 400 })
   }
 
-  const encoder = new TextEncoder()
+  // Collect progress messages for debugging
+  const progressLog: string[] = []
 
-  const customReadable = new ReadableStream({
-    async start(controller) {
-      let advisorOutput: WebsiteAdvisorOutput | null = null
-
-      const callbacks = {
-        onPhaseChange: (phase: AdvisorPhase, message: string, data?: unknown) => {
-          const event = JSON.stringify({ 
-            type: 'phase_update', 
-            phase, 
-            message, 
-            data,
-            timestamp: Date.now(),
-          })
-          controller.enqueue(encoder.encode(event + '\n'))
-        },
-        onComplete: (output: WebsiteAdvisorOutput) => {
-          advisorOutput = output
-          // Send output in chunks to handle large payloads
-          try {
-            const outputStr = JSON.stringify(output)
-            const event = JSON.stringify({ 
-              type: 'complete', 
-              output,
-            })
-            controller.enqueue(encoder.encode(event + '\n'))
-            console.log('Sent complete event, output size:', outputStr.length)
-          } catch (e) {
-            console.error('Error sending complete event:', e)
-            controller.enqueue(encoder.encode(JSON.stringify({ 
-              type: 'error', 
-              message: 'Failed to serialize output',
-            }) + '\n'))
-          }
-        },
-        onError: (message: string) => {
-          const event = JSON.stringify({ 
-            type: 'error', 
-            message,
-          })
-          controller.enqueue(encoder.encode(event + '\n'))
-        },
-      }
-
-      try {
-        await runWebsiteAdvisor(
-          {
-            websiteUrl: input.websiteUrl,
-            prompt: input.prompt,
-          },
-          callbacks
-        )
-      } catch (error) {
-        console.error('Website advisor error:', error)
-        if (!advisorOutput) {
-          callbacks.onError(error instanceof Error ? error.message : 'Pipeline failed')
-        }
-      } finally {
-        // Ensure stream is flushed before closing
-        await new Promise(resolve => setTimeout(resolve, 100))
-        controller.close()
-      }
+  const callbacks = {
+    onPhaseChange: (phase: AdvisorPhase, message: string) => {
+      progressLog.push(`[${phase}] ${message}`)
     },
-  })
-
-  return new NextResponse(customReadable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
+    onComplete: () => {
+      progressLog.push('[complete] Done')
     },
-  })
+    onError: (message: string) => {
+      progressLog.push(`[error] ${message}`)
+    },
+  }
+
+  try {
+    const output = await runWebsiteAdvisor(
+      {
+        websiteUrl: input.websiteUrl,
+        prompt: input.prompt,
+      },
+      callbacks
+    )
+
+    return NextResponse.json({
+      success: true,
+      output,
+      progressLog,
+    })
+  } catch (error) {
+    console.error('Website advisor error:', error)
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Pipeline failed',
+      progressLog,
+    }, { status: 500 })
+  }
 }

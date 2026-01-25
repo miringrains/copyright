@@ -33,7 +33,7 @@ export type AdvisorPhase =
 
 export interface AdvisorCallbacks {
   onPhaseChange: (phase: AdvisorPhase, message: string, data?: unknown) => void
-  onComplete: (output: WebsiteAdvisorOutput) => void
+  onComplete: () => void
   onError: (message: string) => void
 }
 
@@ -117,7 +117,7 @@ export async function runWebsiteAdvisor(
     }
 
     callbacks.onPhaseChange('complete', 'Analysis complete')
-    callbacks.onComplete(output)
+    callbacks.onComplete()
 
     return output
   } catch (error) {

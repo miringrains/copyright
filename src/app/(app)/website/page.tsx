@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { 
   Globe, RotateCcw, Copy, ChevronDown, ChevronUp, 
   Check, Loader2, AlertCircle, Search, FileText,
@@ -25,99 +25,6 @@ import type {
 // ============================================================================
 
 type Phase = 'input' | 'processing' | 'done' | 'error'
-
-interface TerminalLine {
-  id: string
-  type: 'command' | 'output' | 'success' | 'error' | 'dim'
-  content: string
-}
-
-// ============================================================================
-// TERMINAL COMPONENT
-// ============================================================================
-
-function ProcessingDots() {
-  return (
-    <span className="inline-flex gap-0.5 ml-1">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="w-1 h-1 rounded-full bg-orange-400"
-          animate={{ opacity: [0.2, 1, 0.2] }}
-          transition={{ 
-            duration: 1.2,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: 'easeInOut'
-          }}
-        />
-      ))}
-    </span>
-  )
-}
-
-function AdvisorTerminal({ 
-  lines, 
-  isProcessing 
-}: { 
-  lines: TerminalLine[]
-  isProcessing: boolean
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth'
-      })
-    }
-  }, [lines])
-
-  const getLineStyle = (type: TerminalLine['type']) => {
-    switch (type) {
-      case 'command': return 'text-orange-400'
-      case 'output': return 'text-zinc-300'
-      case 'success': return 'text-emerald-400'
-      case 'error': return 'text-red-400'
-      case 'dim': return 'text-zinc-500'
-      default: return 'text-zinc-400'
-    }
-  }
-
-  return (
-    <Card className="border border-zinc-800 bg-zinc-950 text-zinc-100 font-mono text-[13px] overflow-hidden">
-      <CardHeader className="py-2 px-3 border-b border-zinc-800/50 bg-zinc-900/50">
-        <CardTitle className="text-xs font-medium flex items-center gap-2">
-          <Globe className="h-3.5 w-3.5 text-zinc-500" />
-          <span className="text-zinc-400">website-advisor</span>
-          {isProcessing && (
-            <span className="ml-auto text-[10px] text-zinc-500 uppercase tracking-wider flex items-center">
-              analyzing <ProcessingDots />
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div ref={scrollRef} className="h-[180px] overflow-y-auto">
-          <div className="p-3 space-y-1">
-            {lines.map((line) => (
-              <div key={line.id} className={`leading-relaxed ${getLineStyle(line.type)}`}>
-                {line.type === 'command' && <span className="text-zinc-500 mr-2">$</span>}
-                {line.content}
-              </div>
-            ))}
-            {lines.length === 0 && (
-              <div className="text-zinc-600 text-center py-8">
-                Waiting for input...
-              </div>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 // ============================================================================
 // FACT INVENTORY DISPLAY
@@ -370,17 +277,8 @@ export default function WebsitePage() {
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [prompt, setPrompt] = useState('')
   const [phase, setPhase] = useState<Phase>('input')
-  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([])
   const [advisorOutput, setAdvisorOutput] = useState<WebsiteAdvisorOutput | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  const addLine = useCallback((type: TerminalLine['type'], content: string) => {
-    setTerminalLines(prev => [...prev, {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      type,
-      content,
-    }])
-  }, [])
 
   const normalizeUrl = (url: string) => {
     if (!url) return ''
@@ -399,10 +297,7 @@ export default function WebsitePage() {
     setWebsiteUrl(url)
     setPhase('processing')
     setError(null)
-    setTerminalLines([])
     setAdvisorOutput(null)
-
-    addLine('command', `analyze --url="${new URL(url).hostname}"`)
 
     try {
       const response = await fetch('/api/website', {
@@ -414,66 +309,16 @@ export default function WebsitePage() {
         }),
       })
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('Failed to start stream')
+      const data = await response.json()
 
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          // Process any remaining buffer content
-          if (buffer.trim()) {
-            try {
-              const event = JSON.parse(buffer)
-              if (event.type === 'complete') {
-                setAdvisorOutput(event.output)
-                addLine('success', '✓ Analysis complete')
-                setPhase('done')
-              }
-            } catch (e) {
-              console.error('Final buffer parse error:', e)
-            }
-          }
-          break
-        }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const event = JSON.parse(line)
-            
-            if (event.type === 'phase_update') {
-              addLine('output', event.message)
-            } else if (event.type === 'complete') {
-              console.log('Received complete event, recommendations:', event.output?.recommendations?.length)
-              if (event.output && event.output.recommendations) {
-                setAdvisorOutput(event.output)
-                setPhase('done')
-                addLine('success', `✓ Analysis complete - ${event.output.recommendations.length} recommendations`)
-              } else {
-                console.error('Complete event missing data:', Object.keys(event))
-                addLine('error', '✗ Invalid response structure')
-                setPhase('error')
-              }
-            } else if (event.type === 'error') {
-              addLine('error', `✗ ${event.message}`)
-              setError(event.message)
-              setPhase('error')
-            }
-          } catch (e) {
-            console.error('Parse error for line:', line.substring(0, 200), e)
-          }
-        }
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Request failed')
       }
+
+      setAdvisorOutput(data.output)
+      setPhase('done')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
-      addLine('error', `✗ ${message}`)
       setError(message)
       setPhase('error')
     }
@@ -481,12 +326,9 @@ export default function WebsitePage() {
 
   const handleReset = () => {
     setPhase('input')
-    setTerminalLines([])
     setAdvisorOutput(null)
     setError(null)
   }
-
-  const isProcessing = phase === 'processing'
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -500,9 +342,21 @@ export default function WebsitePage() {
         </p>
       </div>
 
-      {/* Terminal - show during processing */}
-      {phase !== 'input' && (
-        <AdvisorTerminal lines={terminalLines} isProcessing={isProcessing} />
+      {/* Processing State */}
+      {phase === 'processing' && (
+        <Card className="border-2">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="text-center">
+                <p className="font-medium">Analyzing your website...</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This takes 30-60 seconds. Auditing site, building fact inventory, assessing sections, generating recommendations.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Input Form */}
