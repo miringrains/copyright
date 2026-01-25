@@ -26,7 +26,7 @@ export type VoiceInsights = z.infer<typeof VoiceInsightsSchema>
 export const DomainProfileSchema = z.object({
   industry: z.string().describe('Broad industry category'),
   subNiche: z.string().describe('Specific niche (e.g., "Palm Beach luxury real estate")'),
-  location: z.string().optional().describe('Geographic focus if relevant'),
+  location: z.string().describe('Geographic focus, or empty string if not location-specific'),
   
   // Language patterns from actual experts
   terminology: TerminologySchema,
@@ -78,23 +78,23 @@ export const WebsiteIntentSchema = z.enum([
 export type WebsiteIntent = z.infer<typeof WebsiteIntentSchema>
 
 export const WebsiteConstraintsSchema = z.object({
-  wordCount: z.number().optional().describe('Target word count'),
-  tone: z.string().optional().describe('Desired tone'),
-  mustInclude: z.array(z.string()).default([]).describe('Required elements'),
-  mustAvoid: z.array(z.string()).default([]).describe('Elements to avoid'),
-  targetAudience: z.string().optional().describe('Who this copy is for'),
+  wordCount: z.number().describe('Target word count, or 0 if not specified'),
+  tone: z.string().describe('Desired tone, or empty string if not specified'),
+  mustInclude: z.array(z.string()).describe('Required elements'),
+  mustAvoid: z.array(z.string()).describe('Elements to avoid'),
+  targetAudience: z.string().describe('Who this copy is for, or empty string if not specified'),
 })
 export type WebsiteConstraints = z.infer<typeof WebsiteConstraintsSchema>
 
 export const WebsiteRequestSchema = z.object({
   scope: WebsiteScopeSchema,
-  sections: z.array(z.string()).default([]).describe('Specific sections if multi_section'),
+  sections: z.array(z.string()).describe('Specific sections if multi_section'),
   intent: WebsiteIntentSchema,
   constraints: WebsiteConstraintsSchema,
   originalPrompt: z.string().describe('The user\'s original freeform prompt'),
-  extractedFacts: z.array(z.string()).default([]).describe('Facts extracted from the prompt'),
-  clarifyingQuestions: z.array(z.string()).default([]).describe('Questions to ask if ambiguous'),
-  needsClarification: z.boolean().default(false),
+  extractedFacts: z.array(z.string()).describe('Facts extracted from the prompt'),
+  clarifyingQuestions: z.array(z.string()).describe('Questions to ask if ambiguous'),
+  needsClarification: z.boolean(),
 })
 export type WebsiteRequest = z.infer<typeof WebsiteRequestSchema>
 
@@ -145,8 +145,8 @@ export type WebsiteCopyOutput = z.infer<typeof WebsiteCopyOutputSchema>
 export const WebsiteInputSchema = z.object({
   websiteUrl: z.string().url(),
   prompt: z.string().min(10).describe('Freeform description of what user wants'),
-  additionalContext: z.string().optional(),
-  referenceUrls: z.array(z.string().url()).default([]).describe('URLs to reference for style'),
+  additionalContext: z.string().describe('Additional context, or empty string'),
+  referenceUrls: z.array(z.string().url()).describe('URLs to reference for style'),
 })
 export type WebsiteInput = z.infer<typeof WebsiteInputSchema>
 

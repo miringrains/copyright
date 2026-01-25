@@ -20,18 +20,18 @@ import {
 
 const ParsedPromptSchema = z.object({
   scope: z.enum(['hero', 'about', 'services', 'features', 'testimonials', 'cta', 'full_page', 'multi_section', 'custom']),
-  sections: z.array(z.string()).default([]),
+  sections: z.array(z.string()).describe('Specific sections if multi_section scope, otherwise empty array'),
   intent: z.enum(['rewrite', 'create', 'improve', 'compare', 'tone_shift']),
   constraints: z.object({
-    wordCount: z.number().optional(),
-    tone: z.string().optional(),
-    mustInclude: z.array(z.string()).default([]),
-    mustAvoid: z.array(z.string()).default([]),
-    targetAudience: z.string().optional(),
+    wordCount: z.number().describe('Target word count, or 0 if not specified'),
+    tone: z.string().describe('Desired tone, or empty string if not specified'),
+    mustInclude: z.array(z.string()).describe('Required elements, or empty array'),
+    mustAvoid: z.array(z.string()).describe('Elements to avoid, or empty array'),
+    targetAudience: z.string().describe('Target audience, or empty string if not specified'),
   }),
   extractedFacts: z.array(z.string()).describe('Specific facts about the business/person from the prompt'),
   needsClarification: z.boolean(),
-  clarifyingQuestions: z.array(z.string()).default([]),
+  clarifyingQuestions: z.array(z.string()).describe('Questions to ask if ambiguous, or empty array'),
   confidenceNotes: z.string().describe('Notes about parsing confidence and assumptions'),
 })
 

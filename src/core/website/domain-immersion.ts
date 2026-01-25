@@ -56,7 +56,7 @@ async function discoverCompetitors(
     schema: z.object({
       industry: z.string(),
       subNiche: z.string(),
-      location: z.string().optional(),
+      location: z.string().describe('Geographic location, or empty string if not location-specific'),
       searchQueries: z.array(z.string()).describe('3-5 search queries to find competitors'),
     }),
     system: `You identify the specific niche of a business from their website content.
