@@ -1,168 +1,154 @@
 import { z } from 'zod'
 
 // ============================================================================
-// DOMAIN PROFILE - Captures how experts in a specific field communicate
+// FACT INVENTORY - What we KNOW vs what we DON'T (anti-hallucination)
 // ============================================================================
 
-export const TerminologySchema = z.object({
-  terms: z.array(z.string()).describe('Domain-specific words (e.g., "oceanfront", "intracoastal")'),
-  phrases: z.array(z.string()).describe('Expert phrases (e.g., "priced to reflect", "under contract within")'),
-  claimPatterns: z.array(z.string()).describe('How experts describe their value'),
-  proofPatterns: z.array(z.string()).describe('How experts establish credibility'),
+export const FactInventorySchema = z.object({
+  // What we KNOW (from user prompt only)
+  knownFacts: z.object({
+    personal: z.array(z.string()).describe('Personal background facts, e.g., "20 years in Palm Beach"'),
+    credentials: z.array(z.string()).describe('Education, certifications, e.g., "degree from Northwood University"'),
+    specializations: z.array(z.string()).describe('Areas of focus, e.g., "historic homes", "West Palm Beach"'),
+    achievements: z.array(z.string()).describe('Only specific numbers/achievements user provided'),
+    location: z.array(z.string()).describe('Geographic specifics mentioned'),
+    other: z.array(z.string()).describe('Any other relevant facts'),
+  }),
+  
+  // What we DON'T know - explicitly flagged
+  unknownGaps: z.array(z.string()).describe('What info is missing, e.g., "no sales volume provided"'),
+  
+  // Strategic pivot when stats are missing
+  focusAreas: z.array(z.string()).describe('What to emphasize instead, e.g., "market expertise", "local knowledge"'),
+  
+  // Raw facts as a flat list for constraint injection
+  allFactsList: z.array(z.string()).describe('All known facts as a flat list for prompt injection'),
 })
-export type Terminology = z.infer<typeof TerminologySchema>
-
-export const VoiceInsightsSchema = z.object({
-  relationship: z.enum(['insider_peer', 'authoritative_expert', 'trusted_advisor', 'industry_veteran'])
-    .describe('How they relate to their audience'),
-  claimStyle: z.enum(['direct', 'understated', 'confident', 'humble'])
-    .describe('How they make claims'),
-  proofStyle: z.enum(['numbers', 'social_proof', 'case_stories', 'credentials', 'mixed'])
-    .describe('Primary proof mechanism'),
-  toneNotes: z.string().describe('Additional tone observations'),
-})
-export type VoiceInsights = z.infer<typeof VoiceInsightsSchema>
-
-export const DomainProfileSchema = z.object({
-  industry: z.string().describe('Broad industry category'),
-  subNiche: z.string().describe('Specific niche (e.g., "Palm Beach luxury real estate")'),
-  location: z.string().describe('Geographic focus, or empty string if not location-specific'),
-  
-  // Language patterns from actual experts
-  terminology: TerminologySchema,
-  
-  // What to AVOID (domain-specific slop)
-  forbiddenInThisNiche: z.array(z.string()).describe('Phrases that are slop in this specific niche'),
-  genericPhrases: z.array(z.string()).describe('Generic marketing phrases to avoid'),
-  
-  // Voice characteristics discovered
-  voiceInsights: VoiceInsightsSchema,
-  
-  // Examples to learn from
-  goodExamples: z.array(z.string()).describe('Sentences from top competitors that work'),
-  badExamples: z.array(z.string()).describe('Sentences that are clearly slop'),
-  
-  // Sources analyzed
-  competitorsAnalyzed: z.array(z.object({
-    url: z.string(),
-    name: z.string(),
-    quality: z.enum(['excellent', 'good', 'average', 'poor']),
-  })),
-})
-export type DomainProfile = z.infer<typeof DomainProfileSchema>
+export type FactInventory = z.infer<typeof FactInventorySchema>
 
 // ============================================================================
-// WEBSITE REQUEST - Parsed from freeform user prompt
+// SITE AUDIT - Structure of existing website sections
 // ============================================================================
 
-export const WebsiteScopeSchema = z.enum([
+export const SectionTypeSchema = z.enum([
   'hero',
-  'about',
+  'about', 
   'services',
   'features',
   'testimonials',
   'cta',
-  'full_page',
-  'multi_section',
-  'custom',
+  'contact',
+  'other',
 ])
-export type WebsiteScope = z.infer<typeof WebsiteScopeSchema>
+export type SectionType = z.infer<typeof SectionTypeSchema>
 
-export const WebsiteIntentSchema = z.enum([
-  'rewrite',      // Replace existing copy
-  'create',       // Write from scratch
-  'improve',      // Enhance existing copy
-  'compare',      // Show before/after
-  'tone_shift',   // Keep content, change voice
-])
-export type WebsiteIntent = z.infer<typeof WebsiteIntentSchema>
-
-export const WebsiteConstraintsSchema = z.object({
-  wordCount: z.number().describe('Target word count, or 0 if not specified'),
-  tone: z.string().describe('Desired tone, or empty string if not specified'),
-  mustInclude: z.array(z.string()).describe('Required elements'),
-  mustAvoid: z.array(z.string()).describe('Elements to avoid'),
-  targetAudience: z.string().describe('Who this copy is for, or empty string if not specified'),
+export const CurrentCopySchema = z.object({
+  headline: z.string().describe('Section headline, or empty string'),
+  subheadline: z.string().describe('Section subheadline, or empty string'),
+  body: z.string().describe('Main body text'),
+  cta: z.string().describe('Call to action text, or empty string'),
 })
-export type WebsiteConstraints = z.infer<typeof WebsiteConstraintsSchema>
+export type CurrentCopy = z.infer<typeof CurrentCopySchema>
 
-export const WebsiteRequestSchema = z.object({
-  scope: WebsiteScopeSchema,
-  sections: z.array(z.string()).describe('Specific sections if multi_section'),
-  intent: WebsiteIntentSchema,
-  constraints: WebsiteConstraintsSchema,
-  originalPrompt: z.string().describe('The user\'s original freeform prompt'),
-  extractedFacts: z.array(z.string()).describe('Facts extracted from the prompt'),
-  clarifyingQuestions: z.array(z.string()).describe('Questions to ask if ambiguous'),
-  needsClarification: z.boolean(),
+export const SectionAssessmentSchema = z.enum(['keep', 'improve', 'rewrite'])
+export type SectionAssessment = z.infer<typeof SectionAssessmentSchema>
+
+export const AuditedSectionSchema = z.object({
+  type: SectionTypeSchema,
+  location: z.string().describe('Where on page, e.g., "Homepage, above fold"'),
+  currentCopy: CurrentCopySchema,
+  assessment: SectionAssessmentSchema,
+  issues: z.array(z.string()).describe('Problems found, e.g., "generic slop", "missing differentiator"'),
 })
-export type WebsiteRequest = z.infer<typeof WebsiteRequestSchema>
+export type AuditedSection = z.infer<typeof AuditedSectionSchema>
+
+export const SiteAuditSchema = z.object({
+  url: z.string(),
+  pageTitle: z.string(),
+  sections: z.array(AuditedSectionSchema),
+  overallNotes: z.string().describe('High-level observations about the site'),
+})
+export type SiteAudit = z.infer<typeof SiteAuditSchema>
 
 // ============================================================================
-// WEBSITE COPY OUTPUT
+// COPY RECOMMENDATION - Before/After/Why per section
 // ============================================================================
 
-export const WebsiteCopySectionSchema = z.object({
-  type: z.string().describe('Section type (hero, about, etc.)'),
-  headline: z.string().describe('Headline for this section, or empty string if not applicable'),
-  subheadline: z.string().describe('Subheadline, or empty string if not applicable'),
-  body: z.string().describe('Main body copy'),
-  cta: z.string().describe('Call to action text, or empty string if not applicable'),
-  notes: z.string().describe('Why this works - brief explanation'),
+export const RecommendedCopySchema = z.object({
+  headline: z.string().describe('New headline, or empty string if not applicable'),
+  subheadline: z.string().describe('New subheadline, or empty string'),
+  body: z.string().describe('New body copy'),
+  cta: z.string().describe('New CTA, or empty string'),
 })
-export type WebsiteCopySection = z.infer<typeof WebsiteCopySectionSchema>
+export type RecommendedCopy = z.infer<typeof RecommendedCopySchema>
 
-export const WebsiteCopyVariantSchema = z.object({
-  style: z.enum(['direct', 'story_led', 'conversational']),
-  sections: z.array(WebsiteCopySectionSchema),
-  wordCount: z.number(),
+export const CopyRecommendationSchema = z.object({
+  sectionType: SectionTypeSchema,
+  sectionLocation: z.string(),
+  action: SectionAssessmentSchema,
+  
+  before: CurrentCopySchema,
+  after: RecommendedCopySchema,
+  
+  reasoning: z.string().describe('Why this change, or why keep as-is'),
+  factsUsed: z.array(z.string()).describe('Which facts from inventory were used'),
 })
-export type WebsiteCopyVariant = z.infer<typeof WebsiteCopyVariantSchema>
+export type CopyRecommendation = z.infer<typeof CopyRecommendationSchema>
 
-export const WebsiteCopyOutputSchema = z.object({
-  primary: z.object({
-    sections: z.array(WebsiteCopySectionSchema),
-    wordCount: z.number(),
+// ============================================================================
+// ADVISOR OUTPUT - Full result of the advisory process
+// ============================================================================
+
+export const WebsiteAdvisorOutputSchema = z.object({
+  // Input summary
+  websiteUrl: z.string(),
+  userPrompt: z.string(),
+  
+  // The fact inventory (what we're allowed to use)
+  factInventory: FactInventorySchema,
+  
+  // The audit of existing site
+  siteAudit: SiteAuditSchema,
+  
+  // Section-by-section recommendations
+  recommendations: z.array(CopyRecommendationSchema),
+  
+  // Summary stats
+  summary: z.object({
+    sectionsAnalyzed: z.number(),
+    sectionsToKeep: z.number(),
+    sectionsToImprove: z.number(),
+    sectionsToRewrite: z.number(),
   }),
-  variants: z.object({
-    direct: WebsiteCopyVariantSchema.optional(),
-    story_led: WebsiteCopyVariantSchema.optional(),
-    conversational: WebsiteCopyVariantSchema.optional(),
-  }),
-  domainProfile: DomainProfileSchema,
-  slopChecks: z.object({
-    universalViolations: z.array(z.string()),
-    domainViolations: z.array(z.string()),
-    passed: z.boolean(),
-  }),
 })
-export type WebsiteCopyOutput = z.infer<typeof WebsiteCopyOutputSchema>
+export type WebsiteAdvisorOutput = z.infer<typeof WebsiteAdvisorOutputSchema>
 
 // ============================================================================
-// API INPUT/OUTPUT TYPES
+// API INPUT
 // ============================================================================
 
-export const WebsiteInputSchema = z.object({
+export const WebsiteAdvisorInputSchema = z.object({
   websiteUrl: z.string().url(),
-  prompt: z.string().min(10).describe('Freeform description of what user wants'),
-  additionalContext: z.string().describe('Additional context, or empty string'),
-  referenceUrls: z.array(z.string().url()).describe('URLs to reference for style'),
+  prompt: z.string().min(10).describe('User prompt with facts about the business'),
 })
-export type WebsiteInput = z.infer<typeof WebsiteInputSchema>
+export type WebsiteAdvisorInput = z.infer<typeof WebsiteAdvisorInputSchema>
 
-export const ImmersionResultSchema = z.object({
-  domainProfile: DomainProfileSchema,
-  scrapedContent: z.object({
-    clientSite: z.string(),
-    competitors: z.array(z.object({
-      url: z.string(),
-      content: z.string(),
-    })),
-  }),
-  timing: z.object({
-    scrapeMs: z.number(),
-    analysisMs: z.number(),
-    totalMs: z.number(),
-  }),
+// ============================================================================
+// DOMAIN PROFILE - Simplified for advisor (from competitors/industry)
+// ============================================================================
+
+export const DomainProfileSchema = z.object({
+  industry: z.string().describe('Broad industry category'),
+  subNiche: z.string().describe('Specific niche'),
+  location: z.string().describe('Geographic focus, or empty string'),
+  
+  // What good copy looks like in this niche
+  goodPatterns: z.array(z.string()).describe('Patterns that work in this industry'),
+  
+  // What to avoid (slop indicators)
+  slopIndicators: z.array(z.string()).describe('Generic phrases to avoid in this niche'),
+  
+  // Terminology to use
+  terminology: z.array(z.string()).describe('Industry-specific terms'),
 })
-export type ImmersionResult = z.infer<typeof ImmersionResultSchema>
+export type DomainProfile = z.infer<typeof DomainProfileSchema>

@@ -1,20 +1,17 @@
 /**
- * Website Copy Pipeline API
+ * Website Copy Advisor API
  * 
  * POST /api/website
- * Streams the full pipeline: immersion → parsing → generation → slop check → variants
+ * Streams the advisor pipeline: audit → inventory → assess → generate
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { WebsitePipeline, type WebsitePhase } from '@/core/website/website-pipeline'
-import { type WebsiteCopyOutput } from '@/lib/schemas/website'
+import { runWebsiteAdvisor, type AdvisorPhase } from '@/core/website/website-pipeline'
+import type { WebsiteAdvisorOutput } from '@/lib/schemas/website'
 
 interface WebsiteApiRequest {
   websiteUrl: string
   prompt: string
-  additionalContext?: string
-  skipImmersion?: boolean
-  answers?: Record<string, string>
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -32,11 +29,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const customReadable = new ReadableStream({
     async start(controller) {
-      let clarifyingQuestions: string[] = []
-      let copyOutput: WebsiteCopyOutput | null = null
+      let advisorOutput: WebsiteAdvisorOutput | null = null
 
       const callbacks = {
-        onPhaseChange: (phase: WebsitePhase, message: string, data?: unknown) => {
+        onPhaseChange: (phase: AdvisorPhase, message: string, data?: unknown) => {
           const event = JSON.stringify({ 
             type: 'phase_update', 
             phase, 
@@ -46,18 +42,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           })
           controller.enqueue(encoder.encode(event + '\n'))
         },
-        onClarifyingQuestions: (questions: string[]) => {
-          clarifyingQuestions = questions
+        onComplete: (output: WebsiteAdvisorOutput) => {
+          advisorOutput = output
           const event = JSON.stringify({ 
-            type: 'clarifying_questions', 
-            questions,
-          })
-          controller.enqueue(encoder.encode(event + '\n'))
-        },
-        onCopyReady: (output: WebsiteCopyOutput) => {
-          copyOutput = output
-          const event = JSON.stringify({ 
-            type: 'copy_ready', 
+            type: 'complete', 
             output,
           })
           controller.enqueue(encoder.encode(event + '\n'))
@@ -71,19 +59,17 @@ export async function POST(req: NextRequest): Promise<Response> {
         },
       }
 
-      const pipeline = new WebsitePipeline(callbacks)
-
       try {
-        await pipeline.run({
-          websiteUrl: input.websiteUrl,
-          prompt: input.prompt,
-          additionalContext: input.additionalContext,
-          skipImmersion: input.skipImmersion,
-          answers: input.answers,
-        })
+        await runWebsiteAdvisor(
+          {
+            websiteUrl: input.websiteUrl,
+            prompt: input.prompt,
+          },
+          callbacks
+        )
       } catch (error) {
-        console.error('Website pipeline error:', error)
-        if (!copyOutput) {
+        console.error('Website advisor error:', error)
+        if (!advisorOutput) {
           callbacks.onError(error instanceof Error ? error.message : 'Pipeline failed')
         }
       } finally {

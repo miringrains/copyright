@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { 
-  Globe, Sparkles, RotateCcw, Copy, ChevronDown, ChevronUp, 
-  Check, Loader2, AlertCircle, Search, Lightbulb, Target
+  Globe, RotateCcw, Copy, ChevronDown, ChevronUp, 
+  Check, Loader2, AlertCircle, Search, FileText,
+  CheckCircle, RefreshCw, Pencil
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,13 +13,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { DomainProfile, WebsiteCopyOutput, WebsiteCopySection } from '@/lib/schemas/website'
+import type { 
+  WebsiteAdvisorOutput, 
+  CopyRecommendation, 
+  FactInventory,
+  SectionAssessment 
+} from '@/lib/schemas/website'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type Phase = 'input' | 'immersing' | 'clarifying' | 'generating' | 'done' | 'error'
+type Phase = 'input' | 'processing' | 'done' | 'error'
 
 interface TerminalLine {
   id: string
@@ -50,7 +56,7 @@ function ProcessingDots() {
   )
 }
 
-function WebsiteTerminal({ 
+function AdvisorTerminal({ 
   lines, 
   isProcessing 
 }: { 
@@ -84,16 +90,16 @@ function WebsiteTerminal({
       <CardHeader className="py-2 px-3 border-b border-zinc-800/50 bg-zinc-900/50">
         <CardTitle className="text-xs font-medium flex items-center gap-2">
           <Globe className="h-3.5 w-3.5 text-zinc-500" />
-          <span className="text-zinc-400">website-pipeline</span>
+          <span className="text-zinc-400">website-advisor</span>
           {isProcessing && (
             <span className="ml-auto text-[10px] text-zinc-500 uppercase tracking-wider flex items-center">
-              running <ProcessingDots />
+              analyzing <ProcessingDots />
             </span>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div ref={scrollRef} className="h-[220px] overflow-y-auto">
+        <div ref={scrollRef} className="h-[180px] overflow-y-auto">
           <div className="p-3 space-y-1">
             {lines.map((line) => (
               <div key={line.id} className={`leading-relaxed ${getLineStyle(line.type)}`}>
@@ -114,121 +120,105 @@ function WebsiteTerminal({
 }
 
 // ============================================================================
-// DOMAIN PROFILE PREVIEW
+// FACT INVENTORY DISPLAY
 // ============================================================================
 
-function DomainProfilePreview({ profile }: { profile: DomainProfile }) {
+function FactInventoryDisplay({ inventory }: { inventory: FactInventory }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <Card>
+    <Card className="border-blue-500/30">
       <CardHeader className="pb-2">
         <button 
           onClick={() => setExpanded(!expanded)}
           className="flex items-center justify-between w-full text-left"
         >
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-primary" />
-            Domain Expertise Built
+            <FileText className="h-4 w-4 text-blue-500" />
+            Fact Inventory ({inventory.allFactsList.length} facts)
           </CardTitle>
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
       </CardHeader>
       
-      <CardContent className="pt-0">
-        <div className="flex flex-wrap gap-1 mb-2">
-          <Badge variant="secondary">{profile.industry}</Badge>
-          <Badge variant="outline">{profile.subNiche}</Badge>
-          {profile.location && <Badge variant="outline">{profile.location}</Badge>}
-        </div>
-        
-        {expanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="space-y-3 pt-3 border-t"
-          >
-            {/* Terminology */}
-            <div>
-              <Label className="text-xs text-muted-foreground">Domain Terminology</Label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {profile.terminology.terms.slice(0, 10).map((term, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">{term}</Badge>
-                ))}
-                {profile.terminology.terms.length > 10 && (
-                  <Badge variant="outline" className="text-xs">+{profile.terminology.terms.length - 10} more</Badge>
-                )}
-              </div>
-            </div>
-
-            {/* Voice Insights */}
-            <div>
-              <Label className="text-xs text-muted-foreground">Voice Profile</Label>
-              <p className="text-sm mt-1">
-                {profile.voiceInsights.relationship.replace('_', ' ')} • 
-                {profile.voiceInsights.claimStyle} claims • 
-                {profile.voiceInsights.proofStyle.replace('_', ' ')} proof
-              </p>
-            </div>
-
-            {/* Forbidden */}
-            <div>
-              <Label className="text-xs text-muted-foreground">Slop to Avoid</Label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {profile.forbiddenInThisNiche.slice(0, 6).map((phrase, i) => (
-                  <Badge key={i} variant="destructive" className="text-xs">{phrase}</Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Good Examples */}
-            {profile.goodExamples.length > 0 && (
-              <div>
-                <Label className="text-xs text-muted-foreground">Good Examples Found</Label>
-                <div className="mt-1 space-y-1">
-                  {profile.goodExamples.slice(0, 2).map((example, i) => (
-                    <p key={i} className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2">
-                      "{example.slice(0, 150)}{example.length > 150 ? '...' : ''}"
-                    </p>
-                  ))}
+      {expanded && (
+        <CardContent className="pt-0 space-y-3">
+          {/* Known Facts */}
+          <div>
+            <Label className="text-xs text-muted-foreground">Known Facts</Label>
+            <div className="mt-1 space-y-1">
+              {inventory.allFactsList.map((fact, i) => (
+                <div key={i} className="text-sm flex items-start gap-2">
+                  <Check className="h-3 w-3 text-emerald-500 mt-1 shrink-0" />
+                  <span>{fact}</span>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Gaps */}
+          {inventory.unknownGaps.length > 0 && (
+            <div>
+              <Label className="text-xs text-muted-foreground">Information Gaps</Label>
+              <div className="mt-1 space-y-1">
+                {inventory.unknownGaps.map((gap, i) => (
+                  <div key={i} className="text-sm flex items-start gap-2 text-amber-600">
+                    <AlertCircle className="h-3 w-3 mt-1 shrink-0" />
+                    <span>{gap}</span>
+                  </div>
+                ))}
               </div>
-            )}
-          </motion.div>
-        )}
-      </CardContent>
+            </div>
+          )}
+
+          {/* Focus Areas */}
+          {inventory.focusAreas.length > 0 && (
+            <div>
+              <Label className="text-xs text-muted-foreground">Focus Areas (since stats missing)</Label>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {inventory.focusAreas.map((area, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs">{area}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   )
 }
 
 // ============================================================================
-// COPY OUTPUT COMPONENT
+// SECTION RECOMMENDATION CARD
 // ============================================================================
 
-function CopyOutput({ output }: { output: WebsiteCopyOutput }) {
-  const [activeVariant, setActiveVariant] = useState<'primary' | 'direct' | 'story_led' | 'conversational'>('primary')
+function getActionIcon(action: SectionAssessment) {
+  switch (action) {
+    case 'keep': return <CheckCircle className="h-4 w-4 text-emerald-500" />
+    case 'improve': return <RefreshCw className="h-4 w-4 text-amber-500" />
+    case 'rewrite': return <Pencil className="h-4 w-4 text-red-500" />
+  }
+}
+
+function getActionBadgeVariant(action: SectionAssessment): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (action) {
+    case 'keep': return 'secondary'
+    case 'improve': return 'outline'
+    case 'rewrite': return 'destructive'
+  }
+}
+
+function SectionRecommendationCard({ recommendation }: { recommendation: CopyRecommendation }) {
+  const [expanded, setExpanded] = useState(recommendation.action !== 'keep')
   const [copied, setCopied] = useState(false)
 
-  const variants = [
-    { id: 'primary' as const, label: 'Primary', available: true },
-    { id: 'direct' as const, label: 'Direct', available: !!output.variants.direct },
-    { id: 'story_led' as const, label: 'Story-Led', available: !!output.variants.story_led },
-    { id: 'conversational' as const, label: 'Conversational', available: !!output.variants.conversational },
-  ]
-
-  const currentSections = activeVariant === 'primary' 
-    ? output.primary.sections 
-    : output.variants[activeVariant]?.sections || []
-
   const handleCopy = async () => {
-    const text = currentSections.map(s => {
-      let content = ''
-      if (s.headline) content += `${s.headline}\n`
-      if (s.subheadline) content += `${s.subheadline}\n`
-      content += s.body
-      if (s.cta) content += `\n\n${s.cta}`
-      return content
-    }).join('\n\n---\n\n')
+    const text = [
+      recommendation.after.headline,
+      recommendation.after.subheadline,
+      recommendation.after.body,
+      recommendation.after.cta,
+    ].filter(Boolean).join('\n\n')
 
     await navigator.clipboard.writeText(text)
     setCopied(true)
@@ -236,142 +226,139 @@ function CopyOutput({ output }: { output: WebsiteCopyOutput }) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Slop Check Status */}
-      <Card className={output.slopChecks.passed ? 'border-emerald-500/30' : 'border-amber-500/30'}>
-        <CardContent className="py-3">
-          <div className="flex items-center gap-2">
-            {output.slopChecks.passed ? (
-              <>
-                <Check className="h-4 w-4 text-emerald-500" />
-                <span className="text-sm text-emerald-600">Slop check passed</span>
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-4 w-4 text-amber-500" />
-                <span className="text-sm text-amber-600">
-                  Some slop detected: {[...output.slopChecks.universalViolations, ...output.slopChecks.domainViolations].slice(0, 3).join(', ')}
-                </span>
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Main Output */}
-      <Card className="border-2 border-primary/50">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Your Copy
-            </span>
-            <Button variant="outline" size="sm" onClick={handleCopy}>
-              {copied ? 'Copied!' : <><Copy className="h-4 w-4 mr-1" /> Copy</>}
-            </Button>
+    <Card className={`border-l-4 ${
+      recommendation.action === 'keep' ? 'border-l-emerald-500' :
+      recommendation.action === 'improve' ? 'border-l-amber-500' :
+      'border-l-red-500'
+    }`}>
+      <CardHeader className="pb-2">
+        <button 
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center justify-between w-full text-left"
+        >
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            {getActionIcon(recommendation.action)}
+            <span className="uppercase">{recommendation.sectionType}</span>
+            <Badge variant={getActionBadgeVariant(recommendation.action)} className="text-xs">
+              {recommendation.action}
+            </Badge>
           </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Variant Tabs */}
-          <div className="flex gap-2 border-b">
-            {variants.filter(v => v.available).map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => setActiveVariant(variant.id)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeVariant === variant.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {variant.label}
-              </button>
-            ))}
-          </div>
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+      </CardHeader>
+      
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <CardContent className="pt-0 space-y-4">
+              {recommendation.action === 'keep' ? (
+                <p className="text-sm text-muted-foreground">{recommendation.reasoning}</p>
+              ) : (
+                <>
+                  {/* Before */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500/50"></span>
+                      BEFORE
+                    </Label>
+                    <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
+                      {recommendation.before.headline && (
+                        <p className="font-semibold">{recommendation.before.headline}</p>
+                      )}
+                      {recommendation.before.subheadline && (
+                        <p className="text-muted-foreground">{recommendation.before.subheadline}</p>
+                      )}
+                      {recommendation.before.body && (
+                        <p className="whitespace-pre-wrap">{recommendation.before.body}</p>
+                      )}
+                      {recommendation.before.cta && (
+                        <p className="text-primary font-medium">{recommendation.before.cta}</p>
+                      )}
+                    </div>
+                  </div>
 
-          {/* Sections */}
-          <div className="space-y-6">
-            {currentSections.map((section, i) => (
-              <div key={i} className="space-y-2">
-                <Badge variant="outline" className="mb-2">{section.type}</Badge>
-                {section.headline && (
-                  <h3 className="text-xl font-bold">{section.headline}</h3>
-                )}
-                {section.subheadline && (
-                  <p className="text-lg text-muted-foreground">{section.subheadline}</p>
-                )}
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {section.body}
-                </div>
-                {section.cta && (
-                  <p className="font-medium text-primary mt-2">{section.cta}</p>
-                )}
-                {section.notes && (
-                  <p className="text-xs text-muted-foreground italic mt-2">
-                    Why this works: {section.notes}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+                  {/* After */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        AFTER
+                      </Label>
+                      <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 text-xs">
+                        {copied ? 'Copied!' : <><Copy className="h-3 w-3 mr-1" /> Copy</>}
+                      </Button>
+                    </div>
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-md p-3 text-sm space-y-1">
+                      {recommendation.after.headline && (
+                        <p className="font-semibold">{recommendation.after.headline}</p>
+                      )}
+                      {recommendation.after.subheadline && (
+                        <p className="text-muted-foreground">{recommendation.after.subheadline}</p>
+                      )}
+                      {recommendation.after.body && (
+                        <p className="whitespace-pre-wrap">{recommendation.after.body}</p>
+                      )}
+                      {recommendation.after.cta && (
+                        <p className="text-primary font-medium">{recommendation.after.cta}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Why */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">WHY</Label>
+                    <p className="text-sm">{recommendation.reasoning}</p>
+                  </div>
+
+                  {/* Facts Used */}
+                  {recommendation.factsUsed.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">FACTS USED</Label>
+                      <div className="flex flex-wrap gap-1">
+                        {recommendation.factsUsed.map((fact, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{fact}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Card>
   )
 }
 
 // ============================================================================
-// CLARIFYING QUESTIONS
+// SUMMARY STATS
 // ============================================================================
 
-function ClarifyingQuestions({
-  questions,
-  onSubmit,
-  isSubmitting,
-}: {
-  questions: string[]
-  onSubmit: (answers: Record<string, string>) => void
-  isSubmitting: boolean
-}) {
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-
-  const handleSubmit = () => {
-    onSubmit(answers)
-  }
-
+function SummaryStats({ output }: { output: WebsiteAdvisorOutput }) {
   return (
-    <Card className="border-2 border-amber-500/30">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-amber-600">
-          <Target className="h-5 w-5" />
-          We need a bit more detail
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {questions.map((question, i) => (
-          <div key={i} className="space-y-2">
-            <Label>{question}</Label>
-            <Textarea
-              value={answers[question] || ''}
-              onChange={(e) => setAnswers(prev => ({ ...prev, [question]: e.target.value }))}
-              placeholder="Your answer..."
-              className="min-h-[80px]"
-            />
-          </div>
-        ))}
-        <Button 
-          onClick={handleSubmit} 
-          disabled={isSubmitting || Object.values(answers).every(a => !a.trim())}
-          className="w-full"
-        >
-          {isSubmitting ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...</>
-          ) : (
-            'Continue'
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-4 gap-3">
+      <Card className="text-center p-3">
+        <div className="text-2xl font-bold">{output.summary.sectionsAnalyzed}</div>
+        <div className="text-xs text-muted-foreground">Sections</div>
+      </Card>
+      <Card className="text-center p-3 border-emerald-500/30">
+        <div className="text-2xl font-bold text-emerald-500">{output.summary.sectionsToKeep}</div>
+        <div className="text-xs text-muted-foreground">Keep</div>
+      </Card>
+      <Card className="text-center p-3 border-amber-500/30">
+        <div className="text-2xl font-bold text-amber-500">{output.summary.sectionsToImprove}</div>
+        <div className="text-xs text-muted-foreground">Improve</div>
+      </Card>
+      <Card className="text-center p-3 border-red-500/30">
+        <div className="text-2xl font-bold text-red-500">{output.summary.sectionsToRewrite}</div>
+        <div className="text-xs text-muted-foreground">Rewrite</div>
+      </Card>
+    </div>
   )
 }
 
@@ -384,9 +371,7 @@ export default function WebsitePage() {
   const [prompt, setPrompt] = useState('')
   const [phase, setPhase] = useState<Phase>('input')
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([])
-  const [domainProfile, setDomainProfile] = useState<DomainProfile | null>(null)
-  const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([])
-  const [copyOutput, setCopyOutput] = useState<WebsiteCopyOutput | null>(null)
+  const [advisorOutput, setAdvisorOutput] = useState<WebsiteAdvisorOutput | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const addLine = useCallback((type: TerminalLine['type'], content: string) => {
@@ -409,15 +394,15 @@ export default function WebsitePage() {
     return websiteUrl.trim().length > 0 && prompt.trim().length >= 10
   }
 
-  const handleStart = async (answers?: Record<string, string>) => {
+  const handleStart = async () => {
     const url = normalizeUrl(websiteUrl)
     setWebsiteUrl(url)
-    setPhase(answers ? 'generating' : 'immersing')
+    setPhase('processing')
     setError(null)
     setTerminalLines([])
-    setCopyOutput(null)
+    setAdvisorOutput(null)
 
-    addLine('command', `website-copy --url="${new URL(url).hostname}"`)
+    addLine('command', `analyze --url="${new URL(url).hostname}"`)
 
     try {
       const response = await fetch('/api/website', {
@@ -426,7 +411,6 @@ export default function WebsitePage() {
         body: JSON.stringify({
           websiteUrl: url,
           prompt,
-          answers,
         }),
       })
 
@@ -450,30 +434,10 @@ export default function WebsitePage() {
             const event = JSON.parse(line)
             
             if (event.type === 'phase_update') {
-              const phaseMap: Record<string, Phase> = {
-                'immersion': 'immersing',
-                'parsing': 'generating',
-                'clarifying': 'clarifying',
-                'generating': 'generating',
-                'slop_check': 'generating',
-                'variants': 'generating',
-                'complete': 'done',
-                'error': 'error',
-              }
-              setPhase(phaseMap[event.phase] || 'generating')
               addLine('output', event.message)
-
-              // Capture domain profile when available
-              if (event.data?.subNiche && event.phase === 'complete') {
-                // Profile might be in the complete event
-              }
-            } else if (event.type === 'clarifying_questions') {
-              setClarifyingQuestions(event.questions)
-              setPhase('clarifying')
-            } else if (event.type === 'copy_ready') {
-              setCopyOutput(event.output)
-              setDomainProfile(event.output.domainProfile)
-              addLine('success', '✓ Copy generated successfully')
+            } else if (event.type === 'complete') {
+              setAdvisorOutput(event.output)
+              addLine('success', '✓ Analysis complete')
               setPhase('done')
             } else if (event.type === 'error') {
               addLine('error', `✗ ${event.message}`)
@@ -493,41 +457,30 @@ export default function WebsitePage() {
     }
   }
 
-  const handleClarifyingSubmit = (answers: Record<string, string>) => {
-    handleStart(answers)
-  }
-
   const handleReset = () => {
     setPhase('input')
     setTerminalLines([])
-    setCopyOutput(null)
-    setDomainProfile(null)
-    setClarifyingQuestions([])
+    setAdvisorOutput(null)
     setError(null)
   }
 
-  const isProcessing = phase === 'immersing' || phase === 'generating'
+  const isProcessing = phase === 'processing'
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight">
-          Website Copy
+          Website Copy Advisor
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Expert copy that sounds human, not like AI
+          Strategic analysis with section-by-section recommendations
         </p>
       </div>
 
       {/* Terminal - show during processing */}
       {phase !== 'input' && (
-        <WebsiteTerminal lines={terminalLines} isProcessing={isProcessing} />
-      )}
-
-      {/* Domain Profile Preview */}
-      {domainProfile && phase === 'done' && (
-        <DomainProfilePreview profile={domainProfile} />
+        <AdvisorTerminal lines={terminalLines} isProcessing={isProcessing} />
       )}
 
       {/* Input Form */}
@@ -536,7 +489,7 @@ export default function WebsitePage() {
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-primary" />
-              What do you need?
+              Analyze Your Website
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -551,48 +504,40 @@ export default function WebsitePage() {
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                We'll scrape this site and find competitors to build domain expertise
-              </p>
             </div>
 
-            {/* Prompt */}
+            {/* Facts Prompt */}
             <div className="space-y-2">
               <Label htmlFor="prompt">
-                What do you want? <span className="text-destructive">*</span>
+                Facts about this business <span className="text-destructive">*</span>
               </Label>
               <Textarea
                 id="prompt"
-                placeholder={`Describe what you need. For example:
+                placeholder={`Tell me the FACTS about this business. Be specific - I can only use what you provide.
 
-"Rewrite the about section. She's been selling Palm Beach real estate for 20 years, was a pro tennis player, specializes in historic homes in West Palm Beach. She's closed 47 historic home sales in the last 3 years."
+Example:
+"Adriana has been selling Palm Beach real estate for 20 years. She was a professional tennis player before real estate. She specializes in historic homes in West Palm Beach. She has a degree from Northwood University."
 
-The more specific facts you provide, the better the copy.`}
+Do NOT include stats you don't have - I will not make them up.`}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="min-h-[160px]"
               />
+              <p className="text-xs text-muted-foreground">
+                Only include facts you can verify. The system will never invent numbers, credentials, or achievements.
+              </p>
             </div>
 
             <Button
-              onClick={() => handleStart()}
+              onClick={handleStart}
               disabled={!isFormValid()}
               className="w-full h-12 text-lg gap-2"
             >
               <Search className="h-5 w-5" />
-              Build Expertise & Generate Copy
+              Analyze & Recommend
             </Button>
           </CardContent>
         </Card>
-      )}
-
-      {/* Clarifying Questions */}
-      {phase === 'clarifying' && clarifyingQuestions.length > 0 && (
-        <ClarifyingQuestions
-          questions={clarifyingQuestions}
-          onSubmit={handleClarifyingSubmit}
-          isSubmitting={false}
-        />
       )}
 
       {/* Error */}
@@ -607,9 +552,23 @@ The more specific facts you provide, the better the copy.`}
         </Card>
       )}
 
-      {/* Output */}
-      {phase === 'done' && copyOutput && (
-        <CopyOutput output={copyOutput} />
+      {/* Results */}
+      {phase === 'done' && advisorOutput && (
+        <div className="space-y-4">
+          {/* Summary Stats */}
+          <SummaryStats output={advisorOutput} />
+
+          {/* Fact Inventory */}
+          <FactInventoryDisplay inventory={advisorOutput.factInventory} />
+
+          {/* Section Recommendations */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Section-by-Section Recommendations</h2>
+            {advisorOutput.recommendations.map((rec, i) => (
+              <SectionRecommendationCard key={i} recommendation={rec} />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Reset Button */}
