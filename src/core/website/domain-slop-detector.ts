@@ -169,7 +169,7 @@ function checkAgainstBadExamples(
 // ============================================================================
 
 const SlopScoreSchema = z.object({
-  score: z.number().min(0).max(100).describe('Quality score. 100 = no slop, 0 = pure slop'),
+  score: z.number().describe('Quality score 0-100. 100 = no slop, 0 = pure slop'),
   issues: z.array(z.object({
     text: z.string(),
     problem: z.string(),
