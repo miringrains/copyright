@@ -422,7 +422,22 @@ export default function WebsitePage() {
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          // Process any remaining buffer content
+          if (buffer.trim()) {
+            try {
+              const event = JSON.parse(buffer)
+              if (event.type === 'complete') {
+                setAdvisorOutput(event.output)
+                addLine('success', '✓ Analysis complete')
+                setPhase('done')
+              }
+            } catch (e) {
+              console.error('Final buffer parse error:', e)
+            }
+          }
+          break
+        }
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
@@ -436,16 +451,23 @@ export default function WebsitePage() {
             if (event.type === 'phase_update') {
               addLine('output', event.message)
             } else if (event.type === 'complete') {
-              setAdvisorOutput(event.output)
-              addLine('success', '✓ Analysis complete')
-              setPhase('done')
+              console.log('Received complete event, recommendations:', event.output?.recommendations?.length)
+              if (event.output && event.output.recommendations) {
+                setAdvisorOutput(event.output)
+                setPhase('done')
+                addLine('success', `✓ Analysis complete - ${event.output.recommendations.length} recommendations`)
+              } else {
+                console.error('Complete event missing data:', Object.keys(event))
+                addLine('error', '✗ Invalid response structure')
+                setPhase('error')
+              }
             } else if (event.type === 'error') {
               addLine('error', `✗ ${event.message}`)
               setError(event.message)
               setPhase('error')
             }
           } catch (e) {
-            console.error('Parse error:', e)
+            console.error('Parse error for line:', line.substring(0, 200), e)
           }
         }
       }

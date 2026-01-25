@@ -44,11 +44,22 @@ export async function POST(req: NextRequest): Promise<Response> {
         },
         onComplete: (output: WebsiteAdvisorOutput) => {
           advisorOutput = output
-          const event = JSON.stringify({ 
-            type: 'complete', 
-            output,
-          })
-          controller.enqueue(encoder.encode(event + '\n'))
+          // Send output in chunks to handle large payloads
+          try {
+            const outputStr = JSON.stringify(output)
+            const event = JSON.stringify({ 
+              type: 'complete', 
+              output,
+            })
+            controller.enqueue(encoder.encode(event + '\n'))
+            console.log('Sent complete event, output size:', outputStr.length)
+          } catch (e) {
+            console.error('Error sending complete event:', e)
+            controller.enqueue(encoder.encode(JSON.stringify({ 
+              type: 'error', 
+              message: 'Failed to serialize output',
+            }) + '\n'))
+          }
         },
         onError: (message: string) => {
           const event = JSON.stringify({ 
@@ -73,6 +84,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           callbacks.onError(error instanceof Error ? error.message : 'Pipeline failed')
         }
       } finally {
+        // Ensure stream is flushed before closing
+        await new Promise(resolve => setTimeout(resolve, 100))
         controller.close()
       }
     },
